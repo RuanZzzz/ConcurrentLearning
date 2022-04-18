@@ -45,5 +45,109 @@ public static void main(String[] args) {
 
 
 
-### 应用之提高效率
+
+
+# Java线程
+
+## 创建和运行线程
+
+**方法一：直接使用Thread**
+
+```java
+// 创建线程对象
+Thread t = new Thread() {
+    public void run() {
+        // 要执行的任务
+    }
+}
+```
+
+例如：
+
+```java
+public static void main(String[] args) throws ExecutionException, InterruptedException {
+    // 构造方法的参数是给线程指定名字
+    Thread t1 = new Thread() {
+        @Override
+        // run 方法内实现了要执行的任务
+        public void run() {
+            log.debug("hello");
+        }
+    };
+    t1.setName("t1");
+    t1.start();
+
+}
+```
+
+输出：
+
+> 23:12:48.117 c.ThreadStarter [t1] - hello
+
+
+
+**方法二：使用Runnable配合Thread**
+
+把【线程】和【任务（要执行的代码）】分开
+
+- Thread 代表线程
+- Runnable 可运行的任务（线程要执行的代码）
+
+```java
+Runnable runnable = new Runnable() {
+    public void run() {
+        // 要执行的任务
+    }
+};
+// 创建线程对象
+Thread t = new Thread(runnable);
+// 启动线程
+t.start();
+```
+
+例如：
+
+```java
+public static void main(String[] args) {
+    // 任务对象
+    Runnable r = new Runnable() {
+        @Override
+        public void run() {
+            log.debug("running");
+        }
+    };
+
+    // 参数1 是任务对象， 参数2 是线程名字
+    Thread t = new Thread(r, "t2");
+    t.start();
+}
+```
+
+输出：
+
+> 23:24:16.936 c.Test2 [t2] - running
+
+
+
+Java8以后可以使用lambda精简代码：
+
+```java
+// 创建任务对象
+Runnable task2 = () -> log.debug("hello");
+
+// 参数1 是任务对象， 参数2 是线程名字
+Thread t = new Thread(r, "t2");
+t.start();
+```
+
+注意：
+
+①、查看Runnable接口可以得知，该接口仅有一个抽象方法，并在最开始加上了注解 `@FunctionalInterface` ，就可以使用lambda表达式进行精简
+
+②、快捷键，光标放到 `new Runnable()` 处，使用 Alt + Enter快速生成
+
+```java
+Runnable r = () -> log.debug("running");
+Runnable r = () -> {log.debug("running");};	// 如果有多行逻辑，最外层需要再加一对 {}
+```
 
