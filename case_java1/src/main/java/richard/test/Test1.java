@@ -18,4 +18,26 @@ public class Test1 {
 
         log.debug("running");
     }
+
+
+    public static void test2() {
+        Runnable runnable = () -> {
+          log.debug("running ...");
+        };
+
+        Thread t = new Thread(runnable);
+        t.start();
+    }
+
+    public static void test1() {
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                log.debug("running ...");
+            }
+        };
+
+        thread.start();
+    }
+
 }

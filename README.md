@@ -51,7 +51,7 @@ public static void main(String[] args) {
 
 ## 创建和运行线程
 
-**方法一：直接使用Thread**
+### **方法一：直接使用Thread**
 
 ```java
 // 创建线程对象
@@ -69,7 +69,7 @@ public static void main(String[] args) throws ExecutionException, InterruptedExc
     // 构造方法的参数是给线程指定名字
     Thread t1 = new Thread() {
         @Override
-        // run 方法内实现了要执行的任务
+        // run 方法内实现了要执行的任务（重写）
         public void run() {
             log.debug("hello");
         }
@@ -86,7 +86,7 @@ public static void main(String[] args) throws ExecutionException, InterruptedExc
 
 
 
-**方法二：使用Runnable配合Thread**
+### **方法二：使用Runnable配合Thread**
 
 把【线程】和【任务（要执行的代码）】分开
 
@@ -127,8 +127,6 @@ public static void main(String[] args) {
 
 > 23:24:16.936 c.Test2 [t2] - running
 
-
-
 Java8以后可以使用lambda精简代码：
 
 ```java
@@ -148,6 +146,17 @@ t.start();
 
 ```java
 Runnable r = () -> log.debug("running");
-Runnable r = () -> {log.debug("running");};	// 如果有多行逻辑，最外层需要再加一对 {}
+Runnable r = () -> {log.debug("running");};	// 如果有多行逻辑，最外层需要再加一对 {};
 ```
 
+
+
+### 原理之 Thread 与 Runnable 的关系
+
+小结：
+
+①、方法1 是把线程和任务合并在了一起；方法2 是把线程和任务分开了
+
+②、用Runnable 更容易与线程池等高级API配合
+
+③、用Runnable 让任务类脱离了 Thread 继承体系，更灵活
