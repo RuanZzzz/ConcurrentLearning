@@ -65,6 +65,7 @@ Thread t = new Thread() {
 例如：
 
 ```java
+// richard.test.Test1
 public static void main(String[] args) throws ExecutionException, InterruptedException {
     // 构造方法的参数是给线程指定名字
     Thread t1 = new Thread() {
@@ -108,6 +109,7 @@ t.start();
 例如：
 
 ```java
+// richard.test.Test2
 public static void main(String[] args) {
     // 任务对象
     Runnable r = new Runnable() {
@@ -160,3 +162,51 @@ Runnable r = () -> {log.debug("running");};	// 如果有多行逻辑，最外层
 ②、用Runnable 更容易与线程池等高级API配合
 
 ③、用Runnable 让任务类脱离了 Thread 继承体系，更灵活
+
+
+
+### 方法三：FutureTask配合Thread
+
+FutureTask 能够接收 Callable 类型的参数，用来处理有返回结果的情况
+
+```java
+// 创建任务对象
+FutureTask<Integer> task3 = new FutureTask<>(() -> {
+    log.debug("hello");
+    return 100;
+});
+
+new Thread(task3, "t3").start();
+
+Integer result = task3.get();
+log.debug("结果是:{}"，result);
+```
+
+例如：
+
+```java
+public static void main(String[] args) throws ExecutionException, InterruptedException {
+    FutureTask<Integer> task = new FutureTask<>(new Callable<Integer>() {
+        @Override
+        public Integer call() throws Exception {
+            log.debug("running ...");
+            // 睡1s
+            Thread.sleep(1000);
+            return 100;
+        }
+    });
+
+    Thread t1 = new Thread(task, "t1");
+    t1.start();
+
+    // 主线程阻塞，同步等待 task 执行完毕的结果
+    log.debug("{}",task.get());
+}
+```
+
+输出：
+
+> 00:03:08.757 c.Test3 [t1] - running ...
+>
+> 00:03:09.767 c.Test3 [main] - 100（等了1s后才会显示）
+
