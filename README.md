@@ -262,3 +262,41 @@ public static void main(String[] args) {
 - `jps` 命令查看所有Java进程
 - `jstack <PID>` 查看某个Java进程的所有线程状态
 - `jconsole` 来查看某个Java进程中线程的运行情况（图形界面）
+
+
+
+
+
+## 线程运行原理
+
+### 栈与栈帧
+
+Java Virtual Machine Stacks（Java虚拟机栈）
+
+每个线程启动后，虚拟机就会为其分配一块栈内存
+
+- 每个栈由多个栈帧（栈帧[Frame]：**每个栈内线程调用一次方法就会产生栈帧内存**）组成，对应着每次方法调用时所占用的内存
+
+```java
+public static void main(String[] args) {
+    method1(10);
+}
+
+private static void method1(int x) {
+    int y = x + 1;
+    Object m = method2();
+    System.out.println(m);
+}
+
+private static Object method2() {
+    Object n = new Object();
+    return n;
+}
+```
+
+每次调用一个方法就会产生一个栈帧，此处会依次产生3块栈帧：
+
+> method2->method1->main(先进后出)
+
+- 每个线程只能有一个活动栈帧，对应着当前正在执行的方法
+
