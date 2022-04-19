@@ -210,3 +210,26 @@ public static void main(String[] args) throws ExecutionException, InterruptedExc
 >
 > 00:03:09.767 c.Test3 [main] - 100（等了1s后才会显示）
 
+
+
+
+
+## 观察多个线程同时运行
+
+```java
+public static void main(String[] args) {
+    new Thread(() -> {
+        while (true) {
+            log.debug("running ...");
+        }
+    }, "t1").start();
+
+    new Thread(() -> {
+        while (true) {
+            log.debug("running ...");
+        }
+    }, "t2").start();
+}
+```
+
+交替执行
