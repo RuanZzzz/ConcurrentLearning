@@ -233,3 +233,32 @@ public static void main(String[] args) {
 ```
 
 交替执行
+
+
+
+
+
+## 查看进程线程的方法
+
+### Windows
+
+- `tasklist` 查看进程
+- `taskkill` 杀死进程
+
+
+
+### Linux
+
+- `ps -fe` 查看所有进程
+- `ps -fT -p <PID>` 查看某个进程（PID）的所有进程
+- `kill` 杀死进程
+- `top` 按大写H切换是否显示线程
+- `top -H -p <PID>` 查看某个进程（PID）的所有线程
+
+
+
+### Java
+
+- `jps` 命令查看所有Java进程
+- `jstack <PID>` 查看某个Java进程的所有线程状态
+- `jconsole` 来查看某个Java进程中线程的运行情况（图形界面）
