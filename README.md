@@ -300,3 +300,33 @@ private static Object method2() {
 
 - 每个线程只能有一个活动栈帧，对应着当前正在执行的方法
 
+
+
+两个线程：
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread(){
+        @Override
+        public void run() {
+            method1(20);
+        }
+    };
+    t1.setName("t1");
+    t1.start();
+    method1(10);
+}
+
+private static void method1(int x) {
+    int y = x + 1;
+    Object m = method2();
+    System.out.println(m);
+}
+
+private static Object method2() {
+    Object n = new Object();
+    return n;
+}
+```
+
+> 通过debug可以得知，栈帧是以线程为单位，相互独立
