@@ -330,3 +330,44 @@ private static Object method2() {
 ```
 
 > 通过debug可以得知，栈帧是以线程为单位，相互独立
+
+
+
+### 线程上下文切换（Thread Context Switch）
+
+因为以下一些原因导致cpu不再执行当前的线程，转而执行另一个线程的代码
+
+- 线程的CPU时间片用完
+- 垃圾回收（会暂停当前所有的工作线程）
+- 有更高优先级的线程需要运行
+- 线程自己调用了sleep、yield、wait、join、park、synchronized、lock等方法
+
+当Context Switch发生时，需要由操作系统保存当前线程的状态，并恢复另一个线程的状态，Java中对应的概念就是程序计数器（Program Counter Register），它的作用是记住下一条jvm指令的执行地址，是线程私有的
+
+- 状态包括程序计数器、虚拟机栈中每个栈帧的信息，如局部变量、操作数栈、返回地址等
+- Context Switch频繁发生会影响性能
+
+
+
+## 常见的方法
+
+| 方法名           | static | 功能说明                                                     | 注意                                                         |
+| ---------------- | ------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| start()          |        | 启动一个新线程，在新的线程运行<br />run方法中的代码          | start方法只是让线程进入就绪，里面的代码不一定立刻运行<br />（CPU的时间片还没有分给它）。每个线程对象的start方法只<br />能调用一次，如果调用了多次会出现<br />**<font color=red>IllegalThreadStateException</font>** |
+| run()            |        | 新线程启动后会调<br />用的方法                               | 如果在构造Thread对象时传递了Runnable参数，则线程启<br />动后会调用Runnable中的run方法，否则默认不执行任何操<br />作。但可以创建Thread的子类对象，来覆盖默认行为 |
+| join()           |        | 等待线程运行结束                                             |                                                              |
+| join(long n)     |        | 等待线程运行结束，最多等待n毫秒                              |                                                              |
+| getId()          |        | 获取线程长整形的id                                           | id唯一                                                       |
+| getName()        |        | 获取线程名                                                   |                                                              |
+| setName(String)  |        | 修改线程名                                                   |                                                              |
+| getPriority()    |        | 获取线程优先级                                               |                                                              |
+| setPriority(int) |        | 修改线程优先级                                               | java中规定线程优先级是1~10的整数，较大的优先级能提高<br />该线程被CPU调度的几率 |
+| getState()       |        | 获取线程状态                                                 | java中线程状态是用6个enum表示，分别为：NEW,<br />RUNNABLE,BLOCKED,WAITING,TIMED_WAITING,<br />TERMINATED |
+| isInterrupted()  |        | 判断是否被打断                                               | 不会清除打断标记                                             |
+| isAlive()        |        | 线程是否存活（还没有运行完毕）                               |                                                              |
+| interrupt()      |        | 打断线程                                                     | 如果被打断线程正在sleep，wait，join会导致被打断的线程<br />抛出InterruptedException，并**清除打断标记**；如果打断的正<br />在运行的线程，则会**设置打断标记**；park的线程被打断，也<br />会设置打断标记 |
+| interrupted()    | static | 判断当前线程是否被打断                                       | 会清除打断标记                                               |
+| currentThread()  | static | 获取当前正在执行的线程                                       |                                                              |
+| sleep(long n)    | static | 让当前执行的线程休眠n毫秒，休眠时<br />让出cpu的时间片给其他线程 |                                                              |
+| yield()          | static | 提示线程调度器让出当前线程对CPU<br />的使用                  | 主要是为了测试和调试                                         |
+
