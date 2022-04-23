@@ -432,9 +432,13 @@ public static void main(String[] args) {
 
 ##  sleep与yield
 
+CPU时间片会优先分配给yield后Runnable的线程，而不会分配给Timed Waiting的线程，sleep的线程需要休眠结束后才会分配给线程
+
+
+
 ### sleep
 
-1. 调用sleep会让当前线程从 Running 进入 Timed Waiting 状态
+1、调用sleep会让当前线程从 Running 进入 Timed Waiting 状态（阻塞）
 
 ```java
 public static void main(String[] args) {
@@ -469,7 +473,7 @@ public static void main(String[] args) {
 
 
 
-2. 其他线程可以使用 interrupt 方法打断正在睡眠的线程，这时 sleep 方法会抛出 InterruptedException
+2、其他线程可以使用 interrupt 方法打断正在睡眠的线程，这时 sleep 方法会抛出 InterruptedException
 
 ```java
 public static void main(String[] args) throws InterruptedException {
@@ -504,9 +508,9 @@ public static void main(String[] args) throws InterruptedException {
 
 
 
-3. 睡眠结束后的线程未必会立刻得到执行
+3、睡眠结束后的线程未必会立刻得到执行
 
-4. 建议使用 TimeUnit 的 sleep 代替 Thread 的 sleep 来获得更好的可读性
+4、建议使用 TimeUnit 的 sleep 代替 Thread 的 sleep 来获得更好的可读性
 
 ```java
 TimeUnit.SECONDS.sleep(1);
@@ -514,15 +518,49 @@ TimeUnit.SECONDS.sleep(1);
 
 
 
+### yield
+
+1、调用 yield 会让当前线程从Running 进入 Runnable 就绪状态，然后调度执行其他线程
+
+2、具体的实现依赖于**操作系统的任务调度器**
 
 
 
+### 线程优先级
+
+1、线程优先级会提示（hint）调度器优先调度该线程，但它仅仅是一个提示，调度器可以忽略它
+
+2、如果CPU比较忙，那么优先级高的线程会获得更多的时间片，但CPU闲时，优先级几乎没作用
+
+```java
+public static void main(String[] args) {
+    Runnable task1 = () -> {
+        int count = 0;
+        for (; ;) {
+            System.out.println("----->1 " + count++);
+        }
+    };
+    Runnable task2 = () -> {
+        int count = 0;
+        for (; ;) {
+            //Thread.yield();
+            System.out.println("         ----->2 " + count++);
+        }
+    };
+
+    Thread t1 = new Thread(task1, "t1");
+    Thread t2 = new Thread(task2, "t2");
+    t1.setPriority(Thread.MIN_PRIORITY);
+    t2.setPriority(Thread.MAX_PRIORITY);
+
+    t1.start();
+    t2.start();
+}
+```
 
 
 
-
-
-
+### sleep应用—防止CPU占用 100%
 
 
 
