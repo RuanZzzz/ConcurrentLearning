@@ -640,3 +640,59 @@ log.debug("结束");
 
 
 
+## 应用之同步
+
+以调用方角度来看：
+
+- 需要等待结果返回，才能继续运行就是同步
+- 不需要等待结果返回，就能继续运行就是异步
+
+
+
+等待多个结果的例子：
+
+```java
+public class TestJoin {
+    static int r = 0;
+    static int r1 = 0;
+    static int r2 = 0;
+
+    public static void main(String[] args) throws InterruptedException {
+        test2();
+    }
+
+    private static void test2() throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            sleep(1);
+            r1 = 10;
+        });
+        Thread t2 = new Thread(() -> {
+            sleep(2);
+            r2 = 20;
+        });
+        t1.start();
+        t2.start();
+        long start = System.currentTimeMillis();
+        log.debug("join begin");
+        t2.join();
+        log.debug("t2 join end");
+        t1.join();
+        log.debug("t1 join end");
+        long end = System.currentTimeMillis();
+        log.debug("r1: {} r2: {} cost: {}", r1, r2, end - start);
+    }
+
+}
+```
+
+输出：
+
+> 23:42:38.168 c.TestJoin [main] - join begin
+> 23:42:40.180 c.TestJoin [main] - t2 join end
+> 23:42:40.180 c.TestJoin [main] - t1 join end
+> 23:42:40.180 c.TestJoin [main] - r1: 10 r2: 20 cost: 2013
+
+分析：
+
+- 第一个join：等待t1时，t2并没有停止，也在运行
+- 第二个join：执行1s后，t2也运行了1s，因此也只需要再等待1s
