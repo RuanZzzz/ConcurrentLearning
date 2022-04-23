@@ -371,3 +371,59 @@ private static Object method2() {
 | sleep(long n)    | static | 让当前执行的线程休眠n毫秒，休眠时<br />让出cpu的时间片给其他线程 |                                                              |
 | yield()          | static | 提示线程调度器让出当前线程对CPU<br />的使用                  | 主要是为了测试和调试                                         |
 
+
+
+## star与run
+
+直接调用run：
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread("t1") {
+        @Override
+        public void run() {
+            log.debug("running ...");
+            FileReader.read(Constants.MP4_FULL_PATH);
+        }
+    };
+
+    t1.run();
+    log.debug("do other thing");
+}
+```
+
+输出：
+
+> 09:35:44.049 c.Test4 [main] - running ...
+> 09:35:44.051 c.FileReader [main] - read [test.mp3] start ...
+> 09:35:44.066 c.FileReader [main] - read [test.mp3] end ... cost: 14 ms
+> 09:35:44.066 c.Test4 [main] - do other thing
+
+并不是起新的线程去执行，而还是主线程去调用相当于实例化的t1中的run()方法，此时 `FileReader.read()` 还是同步的
+
+
+
+线程的状态：
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread("t1") {
+        @Override
+        public void run() {
+            log.debug("running ...");
+        }
+    };
+
+    System.out.println(t1.getState());
+    t1.start();
+    System.out.println(t1.getState());
+}
+```
+
+输出：
+
+> NEW						// 表示新线程
+> RUNNABLE			// 表示线程启动了，可以被CPU调度执行
+> 09:40:14.804 c.Test5 [t1] - running ...
+
+假如多次 `start()` 就会报异常 **Exception in thread "main" java.lang.IllegalThreadStateException**， 因此当线程变成 Runnable状态（也就是start()过后），就不能再继续调用start()了
