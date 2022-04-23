@@ -582,13 +582,61 @@ while(true) {
 
 
 
-#### wait实现
+## join方法
+
+```java
+public class Test10 {
+    static int r = 0;
+
+    public static void main(String[] args) throws InterruptedException {
+        test1();
+    }
+
+    private static void test1() throws InterruptedException {
+        log.debug("开始");
+        Thread t1 = new Thread(() -> {
+            log.debug("开始");
+            sleep(1);
+            log.debug("结束");
+            r = 10;
+        }, "t1");
+
+        t1.start();
+        log.debug("结果为：{}",r);
+        log.debug("结束");
+    }
+}
+```
+
+r的结果为 **0**
 
 
 
+原因：
 
+- 因为主线程和线程t1是并行执行的，t1线程需要1秒之后才能算出r=10
+- 而主线程一开始就要打印r的结果，所以只能打印出r=0
 
+解决办法
 
+- 用sleep的可行性（不太好）
+- 用join，加在t1.start()之后即可
+
+```java
+t1.start();
+// 主线程等待t1线程的结束
+t1.join();
+log.debug("结果为：{}",r);
+log.debug("结束");
+```
+
+输出：
+
+> 17:57:15.082 c.Test10 [main] - 开始
+> 17:57:15.106 c.Test10 [t1] - 开始
+> 17:57:16.109 c.Test10 [t1] - 结束
+> 17:57:16.109 c.Test10 [main] - 结果为：10			// 正确的结果
+> 17:57:16.110 c.Test10 [main] - 结束
 
 
 
