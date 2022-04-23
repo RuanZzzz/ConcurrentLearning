@@ -427,3 +427,108 @@ public static void main(String[] args) {
 > 09:40:14.804 c.Test5 [t1] - running ...
 
 假如多次 `start()` 就会报异常 **Exception in thread "main" java.lang.IllegalThreadStateException**， 因此当线程变成 Runnable状态（也就是start()过后），就不能再继续调用start()了
+
+
+
+##  sleep与yield
+
+### sleep
+
+1. 调用sleep会让当前线程从 Running 进入 Timed Waiting 状态
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread("t1"){
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+    t1.start();
+    log.debug("t1 state：{}", t1.getState());
+
+    // sleep在哪个线程调用，就让哪个线程休眠
+    try {
+        Thread.sleep(500);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    log.debug("t1 state：{}", t1.getState());
+}
+```
+
+输出：
+
+> 09:53:39.270 c.Test6 [main] - t1 state：RUNNABLE
+> 09:53:39.773 c.Test6 [main] - t1 state：TIMED_WAITING
+
+
+
+2. 其他线程可以使用 interrupt 方法打断正在睡眠的线程，这时 sleep 方法会抛出 InterruptedException
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    Thread t1 = new Thread("t1") {
+        @Override
+        public void run() {
+            log.debug("enter sleep...");
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                log.debug("wake up...");
+                e.printStackTrace();
+            }
+        }
+    };
+    t1.start();
+
+    Thread.sleep(1000);
+    log.debug("interrupt...");
+    t1.interrupt();
+}
+```
+
+输出：
+
+> 09:59:00.213 c.Test7 [t1] - enter sleep...
+> 09:59:01.222 c.Test7 [main] - interrupt...
+> 09:59:01.222 c.Test7 [t1] - wake up...
+> java.lang.InterruptedException: sleep interrupted
+> 	at java.lang.Thread.sleep(Native Method)
+> 	at richard.test.Test7$1.run(Test7.java:13)
+
+
+
+3. 睡眠结束后的线程未必会立刻得到执行
+
+4. 建议使用 TimeUnit 的 sleep 代替 Thread 的 sleep 来获得更好的可读性
+
+```java
+TimeUnit.SECONDS.sleep(1);
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
