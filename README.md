@@ -640,7 +640,7 @@ log.debug("结束");
 
 
 
-## 应用之同步
+### 应用之同步
 
 以调用方角度来看：
 
@@ -696,3 +696,41 @@ public class TestJoin {
 
 - 第一个join：等待t1时，t2并没有停止，也在运行
 - 第二个join：执行1s后，t2也运行了1s，因此也只需要再等待1s
+
+
+
+
+
+## 有实效的join
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    test3();
+}
+
+public static void test3() throws InterruptedException {
+    Thread t1 = new Thread(() -> {
+        sleep(2);
+        r1 = 10;
+    });
+
+    long start = System.currentTimeMillis();
+    t1.start();
+
+    // 线程执行结束会导致join结束
+    log.debug("join begin");
+    t1.join(1500);
+    long end = System.currentTimeMillis();
+    log.debug("r1: {} r2: {} cost: {}", r1, r2, end - start);
+}
+```
+
+输出：
+
+> 21:16:46.002 c.TestJoin [main] - join begin
+> 21:16:47.506 c.TestJoin [main] - r1: 0 r2: 0 cost: 1505
+
+t1.join(1500)：主线程提前结束了，但是线程sleep(2)还没结束，所以主线程打印r1还是0
+
+t1.join(3000)：如果线程睡2s就结束，主线程也不会等满3秒，线程结束，主线程也会提交结束
+

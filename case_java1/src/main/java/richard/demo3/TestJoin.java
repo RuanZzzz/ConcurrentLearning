@@ -11,7 +11,23 @@ public class TestJoin {
     static int r2 = 0;
 
     public static void main(String[] args) throws InterruptedException {
-        test2();
+        test3();
+    }
+
+    public static void test3() throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            sleep(2);
+            r1 = 10;
+        });
+
+        long start = System.currentTimeMillis();
+        t1.start();
+
+        // 线程执行结束会导致join结束
+        log.debug("join begin");
+        t1.join(1500);
+        long end = System.currentTimeMillis();
+        log.debug("r1: {} r2: {} cost: {}", r1, r2, end - start);
     }
 
     private static void test2() throws InterruptedException {
