@@ -804,3 +804,76 @@ public static void main(String[] args) throws InterruptedException {
 > 21:38:58.901 c.Test12 [t1] - 被打断了
 
 根据t1线程获取自己线程当前是否被打断的状态，从而停止线程的继续执行
+
+
+
+### 模式之两阶段终止
+
+两阶段终止模式：在一个线程T1中如何优雅的终止线程T2？主要是给T2线程一个料理后事的机会
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/24/c657053036b23d88ce9db78a8e51d3f1_1650808704_vX4XyVAHvv.png)
+
+
+
+实现：
+
+```java
+public class Test1 {
+    public static void main(String[] args) throws InterruptedException {
+        TwoPhaseTermination tpt = new TwoPhaseTermination();
+        tpt.start();
+
+        Thread.sleep(3500);
+        tpt.stop();
+    }
+}
+
+class TwoPhaseTermination {
+    private Thread monitor;
+
+    // 启动监控线程
+    public void start() {
+        monitor = new Thread(() -> {
+            while (true) {
+                Thread curThread = Thread.currentThread();
+                if (curThread.isInterrupted()) {
+                    log.debug("料理后事");
+                    break;
+                }
+                try {
+                    Thread.sleep(1000);
+                    log.debug("执行监控记录");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    // 重新设置打断标记
+                    curThread.interrupt();
+                }
+            }
+        });
+
+        monitor.start();
+    }
+
+    // 停止监控线程
+    public void stop() {
+        monitor.interrupt();
+    }
+
+}
+```
+
+输出：
+
+> 22:12:14.976 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> 22:12:15.984 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> 22:12:16.994 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> java.lang.InterruptedException: sleep interrupted
+> 	at java.lang.Thread.sleep(Native Method)
+> 	at richard.demo3.TwoPhaseTermination.lambda$start$0(Test1.java:30)
+> 	at java.lang.Thread.run(Thread.java:748)
+> 22:12:17.487 c.TwoPhaseTermination [Thread-0] - 料理后事
+
+这样就可以，可以监控到各种情况下的打断，并在打断后处理逻辑（释放锁之类的），并结束循环
+
+
+
