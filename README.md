@@ -877,3 +877,37 @@ class TwoPhaseTermination {
 
 
 
+### 打断park线程
+
+```java
+public static void main(String[] args) {
+    test1();
+}
+
+public static void test1() {
+    Thread t1 = new Thread(() -> {
+        log.debug("park ...");
+        LockSupport.park();
+        log.debug("unpark ...");
+        log.debug("打断状态：{}",Thread.currentThread().isInterrupted());
+    }, "t1");
+
+    t1.start();
+
+    sleep(1);
+    t1.interrupt();
+}
+```
+
+输出：
+
+> 22:23:08.469 c.Test13 [t1] - park ...
+> 22:23:09.482 c.Test13 [t1] - unpark ...
+> 22:23:09.482 c.Test13 [t1] - 打断状态：true
+
+打断之后，可以输出 `park ... ` 之后的逻辑，但之后再使用park就无效了，如果需要继续使用park，则可以这样：
+
+```java
+log.debug("打断状态：{}",Thread.interrupted());
+```
+
