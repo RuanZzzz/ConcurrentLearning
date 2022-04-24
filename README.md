@@ -774,3 +774,33 @@ public static void main(String[] args) throws InterruptedException {
 > 	at java.lang.Thread.run(Thread.java:748)
 
 打断标记为FALSE的原因：wait、sleep、join被打断后，就以异常的方式表示被打断，就会将打断标记置为FALSE
+
+
+
+### 打断正常运行的线程
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    Thread t1 = new Thread(() -> {
+        while (true) {
+            boolean interrupted = Thread.currentThread().isInterrupted();
+            if (interrupted) {
+                log.debug("被打断了");
+                break;
+            }
+        }
+    }, "t1");
+
+    t1.start();
+    Thread.sleep(1000);
+    log.debug("interrupt");
+    t1.interrupt();
+}
+```
+
+输出：
+
+> 21:38:58.900 c.Test12 [main] - interrupt
+> 21:38:58.901 c.Test12 [t1] - 被打断了
+
+根据t1线程获取自己线程当前是否被打断的状态，从而停止线程的继续执行
