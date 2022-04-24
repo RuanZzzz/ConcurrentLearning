@@ -699,9 +699,7 @@ public class TestJoin {
 
 
 
-
-
-## 有实效的join
+### 有实效的join
 
 ```java
 public static void main(String[] args) throws InterruptedException {
@@ -734,3 +732,45 @@ t1.join(1500)：主线程提前结束了，但是线程sleep(2)还没结束，�
 
 t1.join(3000)：如果线程睡2s就结束，主线程也不会等满3秒，线程结束，主线程也会提交结束
 
+
+
+
+
+## interrupt方法
+
+### 打断sleep、wait、join的线程
+
+- **调用sleep、wait、join，都会让线程进入阻塞状态**
+
+打断sleep的线程，会清空打断状态，以sleep为例
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    Thread t1 = new Thread(() -> {
+        log.debug("sleep");
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }, "t1");
+
+    t1.start();
+    Thread.sleep(1000);
+    log.debug("interrupt");
+    t1.interrupt();
+    log.debug("打断标记：{}",t1.isInterrupted());
+}
+```
+
+输出：
+
+> 21:31:08.823 c.Test11 [t1] - sleep
+> 21:31:09.822 c.Test11 [main] - interrupt
+> 21:31:09.822 c.Test11 [main] - 打断标记：false
+> java.lang.InterruptedException: sleep interrupted
+> 	at java.lang.Thread.sleep(Native Method)
+> 	at richard.test.Test11.lambda$main$0(Test11.java:13)
+> 	at java.lang.Thread.run(Thread.java:748)
+
+打断标记为FALSE的原因：wait、sleep、join被打断后，就以异常的方式表示被打断，就会将打断标记置为FALSE
