@@ -922,3 +922,40 @@ stop()：停止线程运行
 suspend()：挂起（暂停）线程运行
 
 resume()：恢复线程运行
+
+
+
+## 主线程和守护线程
+
+默认情况下，Java进程需要等待所有线程都运行结束，才会结束。有一种特殊的线程叫做守护线程，只要其它非守护线程运行结束了，即使守护线程的代码没有执行完，也会强制结束
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    Thread t1 = new Thread(() -> {
+        while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
+        }
+        log.debug("结束");
+    }, "t1");
+    // t1 就变成守护线程
+    t1.setDaemon(true);
+    t1.start();
+    Thread.sleep(1000);
+    log.debug("结束");
+}
+```
+
+输出：
+
+> 22:00:34.199 c.Test15 [main] - 结束
+
+t1 为守护线程，当非守护线程（main主线程）运行结束了，即使 t1 没有执行完（while(true)），也会强制结束
+
+
+
+**<font color=red>注意</font>**：
+
+- 垃圾回收器线程就是一种守护线程
+- Tomcat中 的 Acceptor（接收请求） 和 Poller（分发请求） 线程都是守护线程，所以 Tomcat 接收到shutdown 命令后，不会等待它们处理完当前请求
