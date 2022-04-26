@@ -994,3 +994,173 @@ t1 为守护线程，当非守护线程（main主线程）运行结束了，即�
   - 注意：Java API 层面的 RUNNABLE 状态涵盖了 操作系统 层面的 【可运行状态】、【运行状态】和【阻塞状态】（由于BIO导致的线程阻塞，在Java里无法区分，仍然认为是可运行）
 - BLOCKED、WAITING、TIMED_WAITING都是 Java API层面对【阻塞状态】的细分
 - TERMINATED 当线程代码运行结束
+
+
+
+### 代码实现
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread("t1") {
+        @Override
+        public void run() {
+            log.debug("running...");
+        }
+    };
+
+    Thread t2 = new Thread("t2") {
+        @Override
+        public void run() {
+            while(true) { // runnable
+
+            }
+        }
+    };
+    t2.start();
+
+    Thread t3 = new Thread("t3") {
+        @Override
+        public void run() {
+            log.debug("running...");
+        }
+    };
+    t3.start();
+
+    Thread t4 = new Thread("t4") {
+        @Override
+        public void run() {
+            synchronized (TestState.class) {
+                try {
+                    Thread.sleep(1000000); // timed_waiting
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    };
+    t4.start();
+
+    Thread t5 = new Thread("t5") {
+        @Override
+        public void run() {
+            try {
+                t2.join(); // waiting
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+    t5.start();
+
+    Thread t6 = new Thread("t6") {
+        @Override
+        public void run() {
+            synchronized (TestState.class) { // blocked
+                try {
+                    Thread.sleep(1000000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    };
+    t6.start();
+
+    try {
+        Thread.sleep(500);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    log.debug("t1 state {}", t1.getState());
+    log.debug("t2 state {}", t2.getState());
+    log.debug("t3 state {}", t3.getState());
+    log.debug("t4 state {}", t4.getState());
+    log.debug("t5 state {}", t5.getState());
+    log.debug("t6 state {}", t6.getState());
+}
+```
+
+输出：
+
+> 23:17:47.164 c.TestState [main] - t1 state NEW
+> 23:17:47.165 c.TestState [main] - t2 state RUNNABLE
+> 23:17:47.165 c.TestState [main] - t3 state TERMINATED
+> 23:17:47.165 c.TestState [main] - t4 state BLOCKED
+> 23:17:47.165 c.TestState [main] - t5 state WAITING
+> 23:17:47.165 c.TestState [main] - t6 state TIMED_WAITING
+
+
+
+# **共享模型之管程**
+
+## 共享带来的问题
+
+### Java例子
+
+```java
+public class Test17 {
+    static int counter = 0;
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            for (int i = 0; i < 5000; i++) {
+                counter ++;
+            }
+        }, "t1");
+
+        Thread t2 = new Thread(() -> {
+            for (int i = 0; i < 5000; i++) {
+                counter --;
+            }
+        }, "t2");
+
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
+
+        log.debug("{}",counter);
+    }
+}
+```
+
+输出：
+
+> 21:58:43.660 c.Test17 [main] - 407
+
+
+
+**<font color=red>原因</font>**：
+
+以上的结果存在正数、负数、0,。因为Java中对静态变量的自增，自减并不是原子操作，从字节码来进行分析
+
+例如对于 `i++` 而言（i为静态变量），实际会产生如下的JVM字节码命令：
+
+```java
+getstatic		i	// 获取静态变量i的值
+iconst_1			// 准备常量1
+iadd				// 自增
+putstatic		i	// 将修改后的值存入静态变量i
+```
+
+而对应 `i--` 也是类似
+
+```java
+getstatic		i	// 获取静态变量i的值
+iconst_1			// 准备常量1
+isub				// 自减
+putstatic		i	// 将修改后的值存入静态变量i
+```
+
+而Java的内存模型如下，完成静态变量的自增，自减需要在主存和工作内存中进行数据交换：
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/26/975a45d73e048aec9b393518af07ed3f_1650982214_h7zEPeoZMw.png)
+
+如果是单线程以上带吧是顺序执行（不会交错）没有问题：
+
+但因为是多线程，就可能交错运行，结果也会出现负数：
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/26/6338db92be55cf2a0a0e4bdb391d9901_1650983020_FVgVIDElyw.png)
+
+
+
