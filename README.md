@@ -1232,13 +1232,45 @@ synchronized(对象)
 
 解决
 
+```java
+public class Test17 {
+    static int counter = 0;
+    static Object lock = new Object();
 
+    public static void main(String[] args) throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            for (int i = 0; i < 5000; i++) {
+                synchronized (lock) {
+                    counter ++;
+                }
+            }
+        }, "t1");
 
+        Thread t2 = new Thread(() -> {
+            for (int i = 0; i < 5000; i++) {
+                synchronized (lock) {
+                    counter --;
+                }
+            }
+        }, "t2");
 
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
 
+        log.debug("{}",counter);
+    }
+}
+```
 
+图解：
 
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/27/a36a1afcd65b59634893f4d74445d0a1_1651066756_UJ3Pe7QyG6.png)
 
+结论：
+
+synchronized 实际是用 **对象锁** 保证了 **临界区内代码的原子性** ，临界区内的代码对外是不可分割的，不会被线程切换所打断的
 
 
 
