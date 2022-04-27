@@ -31,21 +31,15 @@ public class Test17 {
 class Room {
     private int counter = 0;
 
-    public void increment() {
-        synchronized (this) {
+    public synchronized void increment() {
             counter ++;
-        }
     }
 
-    public void decrement() {
-        synchronized (this) {
+    public synchronized void decrement() {
             counter --;
-        }
     }
 
-    public int getCounter() {
-        synchronized (this) {
-            return counter;
-        }
+    public synchronized int getCounter() {
+        return counter;
     }
 }

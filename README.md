@@ -1326,3 +1326,361 @@ class Room {
     }
 }
 ```
+
+
+
+## 方法上的synchronized
+
+```java
+class Test {
+    public synchronized void test() {
+        
+    }
+}
+// 等价于
+class Test {
+    public void test() {
+        synchronized (this) {
+            
+        }
+    }
+}
+```
+
+```java
+class Test {
+    public synchronized static void test() {
+        
+    }
+}
+// 等价于
+class Test {
+    public static void test() {
+        synchronized (Test.class) {
+            
+        }
+    }
+}
+```
+
+因此，之前的例子可以改为：
+
+```java
+class Room {
+    private int counter = 0;
+
+    public synchronized void increment() {
+            counter ++;
+    }
+
+    public synchronized void decrement() {
+            counter --;
+    }
+
+    public synchronized int getCounter() {
+        return counter;
+    }
+}
+```
+
+
+
+### “线程八锁”
+
+情况1：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.b();
+        }).start();
+    }
+}
+
+class Number{
+    public synchronized void a() {
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出：`1、2` 或 `2、1`
+
+
+
+情况2：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.b();
+        }).start();
+    }
+}
+
+class Number{
+    public synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出： **1s 后** `1、2`；`2` **1s后**  `1`
+
+
+
+情况3：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.b();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.c();
+        }).start();
+    }
+}
+
+class Number{
+    public synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+    public void c() {
+        log.debug("3");
+    }
+}
+```
+
+输出：
+
+`3` **1s后**  `1、2` 或
+
+2、3 **1s后** 1 或
+
+3、2 **1s后** 1
+
+注意：没有1、3的原因是，a方法会睡1秒，这时候3是永远没有获取锁的状态，所以会抢占1之前出来
+
+
+
+情况4：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        Number n2 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n2.b();
+        }).start();
+
+    }
+}
+
+@Slf4j(topic = "c.Number")
+class Number{
+    public synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出：
+
+永远都是先输出2，1s后再输出1
+
+
+
+情况5：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.b();
+        }).start();
+
+    }
+}
+
+@Slf4j(topic = "c.Number")
+class Number{
+    public static synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出：
+
+总是先输出2，再输出1
+
+因为a锁住的类对象，b锁住的是n1，因此它们锁住的不是同一个对象
+
+
+
+情况6：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.b();
+        }).start();
+
+    }
+}
+
+@Slf4j(topic = "c.Number")
+class Number{
+    public static synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public static synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出： **1s 后** `1、2`；`2` **1s后**  `1`
+
+都是锁的类对象
+
+
+
+情况7：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        Number n2 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n2.b();
+        }).start();
+
+    }
+}
+
+@Slf4j(topic = "c.Number")
+class Number{
+    public static synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    }
+    public synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出：
+
+总是先输出2，再输出1
+
+锁的不是同一个对象
+
+
+
+情况8：
+
+```java
+public class Test8Locks {
+    public static void main(String[] args) {
+        Number n1 = new Number();
+        Number n2 = new Number();
+        new Thread(() -> {
+            log.debug("begin");
+            n1.a();
+        }).start();
+        new Thread(() -> {
+            log.debug("begin");
+            n2.b();
+        }).start();
+
+    }
+}
+
+@Slf4j(topic = "c.Number")
+class Number{
+    public static synchronized void a() {
+        sleep(1);
+        log.debug("1");
+    } 
+    public static synchronized void b() {
+        log.debug("2");
+    }
+}
+```
+
+输出： **1s 后** `1、2`；`2` **1s后**  `1`
+
+虽然有两个对象，但都是锁的类对象
+
+
+
