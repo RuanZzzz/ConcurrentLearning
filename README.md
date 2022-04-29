@@ -1888,3 +1888,47 @@ class ThreadSafe {
 }
 ```
 
+
+
+### 常见线程安全类
+
+- String
+- Integer
+- StringBuffer
+- Random
+- Vector
+- Hashtable
+- java.util.concurrnt 包下的类
+
+这里的线程安全是指，多个线程调用它们同一个实例的某个方法时，是线程安全的。也可以理解为：
+
+①、它们的每个方法是原子的
+
+②、**但是** 它们多个方法的组合不是原子的
+
+
+
+#### 线程安全类方法的组合
+
+``` java
+// 不是在一个方法内执行的
+Hashtable table = new Hashtable();
+// 线程1，线程2
+if (table.get("key") == null) {
+    table.put("key", value);
+}
+```
+
+以上就会出现线程安全的问题，过程如下
+
+```java
+sequenceDiagram
+participant t1 as 线程1
+participant t2 as 线程2
+participant table
+t1 ->> table : get("key") == null
+t2 ->> table : get("key") == null
+t2 ->> table : put("key",v2)
+t1 ->> table : put("key",v1)
+```
+
