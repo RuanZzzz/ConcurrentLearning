@@ -15,24 +15,6 @@ public class TestThreadSafe {
     }
 }
 
-class ThreadUnsafe {
-    ArrayList<String> list = new ArrayList<>();
-    public void method1(int loopNumber) {
-        for (int i = 0; i < loopNumber; i++) {
-            method2();
-            method3();
-        }
-    }
-
-    private void method2() {
-        list.add("1");
-    }
-
-    private void method3() {
-        list.remove(0);
-    }
-}
-
 class ThreadSafe {
     public final void method1(int loopNumber) {
         ArrayList<String> list = new ArrayList<>();
@@ -42,7 +24,7 @@ class ThreadSafe {
         }
     }
 
-    public void method2(ArrayList<String> list) {
+    private void method2(ArrayList<String> list) {
         list.add("1");
     }
 
@@ -51,12 +33,11 @@ class ThreadSafe {
     }
 }
 
-class ThreadSafeSubClass extends ThreadSafe{
-    //    @Override
-    public void method3(ArrayList<String> list) {
-        System.out.println(2);
-        new Thread(() -> {
-            list.remove(0);
-        }).start();
-    }
-}
+//class ThreadSafeSubClass extends ThreadSafe{
+//    @Override
+//    public void method3(ArrayList<String> list) {
+//        new Thread(() -> {
+//            list.remove(0);
+//        }).start();
+//    }
+//}

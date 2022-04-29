@@ -1815,3 +1815,76 @@ class ThreadSafe {
 - list 是局部变量，每个线程调用时会创建其不同实例，没有共享
 - 而 method2 的参数是从 method1 中传递过来的，与 method1 中引用同一个对象
 - method3 的参数与method2 同理
+
+
+
+引用暴露：
+
+```java
+public class TestThreadSafe {
+    static final int THREAD_NUMBER = 2;
+    static final int LOOP_NUMBER = 200;
+    public static void main(String[] args) {
+        ThreadSafeSubClass test = new ThreadSafeSubClass();
+        for (int i = 0; i < THREAD_NUMBER; i++) {
+            new Thread(() -> {
+                test.method1(LOOP_NUMBER);
+            }, "Thread" + (i+1)).start();
+        }
+    }
+}
+
+class ThreadSafe {
+    public final void method1(int loopNumber) {
+        ArrayList<String> list = new ArrayList<>();
+        for (int i = 0; i < loopNumber; i++) {
+            method2(list);
+            method3(list);
+        }
+    }
+
+    public void method2(ArrayList<String> list) {
+        list.add("1");
+    }
+
+    public void method3(ArrayList<String> list) {
+        list.remove(0);
+    }
+}
+
+class ThreadSafeSubClass extends ThreadSafe{
+    @Override
+    public void method3(ArrayList<String> list) {
+        new Thread(() -> {
+            list.remove(0);
+        }).start();
+    }
+}
+```
+
+此时会造成线程安全
+
+
+
+可以借助private和final提供安全，防止重写
+
+```java
+class ThreadSafe {
+    public final void method1(int loopNumber) {
+        ArrayList<String> list = new ArrayList<>();
+        for (int i = 0; i < loopNumber; i++) {
+            method2(list);
+            method3(list);
+        }
+    }
+
+    private void method2(ArrayList<String> list) {
+        list.add("1");
+    }
+
+    private void method3(ArrayList<String> list) {
+        list.remove(0);
+    }
+}
+```
+
