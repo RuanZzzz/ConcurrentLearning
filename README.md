@@ -2269,6 +2269,12 @@ Klass Word：指针，找到类对象
 |--------------------------------------------------------------------|--------------------|
 | 																| 11 | 		Marked for GC |
 |--------------------------------------------------------------------|--------------------|
+        
+ /*
+  * 01 没加锁
+  * 00 轻量级锁	 ptr_to_lock_record:30—>轻量级锁记录地址 
+  * 10 重量级锁  ptr_to_heavyweight_monitor:30—>重量级锁记录地址 
+  */
 ```
 
 
@@ -2296,7 +2302,7 @@ Monitor 结构如下
 
 
 
-#### synchronized 原理
+## synchronized 原理
 
 ```java
 static final Object lock = new Object();
@@ -2356,3 +2362,85 @@ public static void main(java.lang.String[]);
  			offset_delta = 4               
 ```
 
+
+
+### 轻量级锁
+
+轻量级锁的使用场景：如果一个对象虽然有多线程访问，但多线程访问的时间是错开的（也就是没有竞争），那么可以使用轻量级锁来优化。
+
+轻量级锁对使用者是透明的，即语法仍然是 `synchronized`
+
+假设有两个方法同步块，利用一个对象加锁
+
+```java
+static final Object obj = new Object();
+public static void method1() {
+    synchronized(obj) {
+        // 同步块A
+        method2();
+    }
+}
+
+public static void method2() {
+    synchronized(obj) {
+        // 同步块B
+    }
+}
+```
+
+
+
+1、**<font color=red>创建锁记录（Lock Record）对象</font>**，每个线程的栈帧都会包含一个锁记录的结构，内部可以存储锁定对象的Mark Word
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/dff4e56f717d60465ebb0da1cdf6d862_1651314600_M1GeYQzebl.png)
+
+2、让锁记录中 Object reference **指向锁对象**，并常使用 **cas 替换 Object 的 Mark Word**（就是加锁），将 Mark Word的值存入锁记录
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/ded59466bdda9adc712b4a6d34c03c3f_1651314774_w2H30ma7MX.png)
+
+3、如果 cas 替换成功，对象头中存储了 **锁记录地址** 和 状态 **00**，表示由该线程给对象加锁，如下图所示
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/a13f34b36ad630c6fa9fd7212edfa877_1651319705_fwJ68xAYzE.png)
+
+- 如果 cas 失败，有两种情况
+  - 如果是其他线程已经持有了该 Object 的轻量级锁，这时表明有竞争，进入锁膨胀过程
+  - 如果是自己执行了 synchronized 锁重入，那么再添加一条 Lock Record 作为重入的记数（存储Mark Word的地方，就只是存个null，用来占位记数使用）
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/50d9f307c0e8d53af36a6be65311a309_1651320176_m3yVILlkUZ.png)
+
+4、当退出 synchronized 代码块（解锁时）如果有取值为 null 的锁记录，表示有重入，这是重置锁记录，表示重入记数减一
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/723aa14e6b5f520ee465d1cd8c295f10_1651320396_DcXlgWPg7D.png)
+
+5、当退出 synchronized 代码块（解锁时）锁记录的值不为null，这时使用 cas 将 Mark Word 的值恢复给对象头
+
+- 成功：解锁成功
+- 失败：说明轻量级锁进行了锁膨胀或已经升级为重量级锁，进入重量级锁解锁流程
+
+
+
+### 膨胀锁
+
+如果在尝试加轻量级锁的过程中，CAS 操作无法成功，这时一种情况就是有其他线程为此对象加上了轻量级锁（有竞争），这时需要进行膨胀锁，将轻量级锁变为重量级锁
+
+```java
+static Object obj = new Object();
+public static void method1() {
+    synchronized( obj ) {
+        // 同步块
+    } 
+}
+```
+
+1、当 Thread-1 进行轻量级加锁时，Thread-0 已经对该对象加了轻量级锁
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/1a05ac8b19a1f036ad191d02375c4923_1651322186_ZfhBwv77xp.png)
+
+2、这时 Thread-1 加轻量级锁失败，进入锁膨胀流程
+
+- 即为 Object 对象申请 Monitor 锁，让 Object 执行重量级锁地址
+- 然后自己进入 Monitor 的 EntryList BLOCKED
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/183575631056f57c5591a9c1f9ac16b9_1651322357_YK6AAnmlFf.png)
+
+3、当 Thread-0 退出同步块解锁时，使用 cas 将 Mark Word 的值恢复给对象头，失败。这时会进入重量级解锁流程，即按照 Monitor 地址找到 Monitor 对象，将Owner 置为null，唤醒EntryList 中 BLOCKED 的线程
