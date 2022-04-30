@@ -1932,3 +1932,289 @@ t2 ->> table : put("key",v2)
 t1 ->> table : put("key",v1)
 ```
 
+
+
+#### 不可变类线程安全性
+
+String、Integer 等都是不可变类，因为其内部的状态不可以改变，因此它们的方法都是线程安全的
+
+
+
+#### 有趣的例子
+
+例1：
+
+```java
+public class MyServlet extends HttpServlet {
+    Map<String,Object> map = new HashMap<>();	// 非线程安全
+    String S1 = "test";							// 线程安全，String不可变
+    final String S2 = "test";					// 线程安全
+    Date D1 = new Date();						// 非线程安全
+    final Date D2 = new Date();					// 非线程安全（引用值不能变，里面的属性可以改变）
+    
+    public void doGet(HttpServletRequest request, HttpServeltResponse response) {
+        // 使用上面的变量
+    }
+}
+```
+
+
+
+例2：
+
+```java
+// 非线程安全
+public class MyServlet extends HttpServlet {
+    private UserService userService = new UserServiceImpl();
+    
+    public void doGet(HttpServletRequest request, HttpServeltResponse response) {
+        userService.update();
+    }
+}
+
+public class UserServiceImpl implements UserService {
+    // 记录调用次数
+    private int count = 0;
+    
+    public void update() {
+        count ++;
+    }
+}
+```
+
+
+
+例3：
+
+```java
+// 非线程安全
+@Aspect
+@Component
+public class MyAspect {
+    private long start = 0L;
+    
+    @Before("execution(* *(..))")
+    public void before() {
+        start = System.nanoTime();
+    }
+    
+    @After("execution(* *(..))")
+    public void after() {
+        long end = System.nanoTime();
+        System.out.println("cost time:" + (end - start));
+    }
+    
+}
+```
+
+
+
+例4：
+
+```java
+public class MyServlet extends HttpServlet {
+    // 是线程安全（虽然有成员变量，但是是私有的，也没有其他途径去修改该成员变量）
+    private UserService userService = new UserServiceImpl();
+
+    public void doGet(HttpServletRequest request, HttpServletResponse response) {
+        userService.update(...);
+    }
+}
+public class UserServiceImpl implements UserService {
+    // 是线程安全（没有可修改的共享变量）
+    private UserDao userDao = new UserDaoImpl();
+
+    public void update() {
+        userDao.update();
+    }
+}
+public class UserDaoImpl implements UserDao {
+    public void update() {
+        String sql = "update user set password = ? where username = ?";
+        // 是线程安全
+        try (Connection conn = DriverManager.getConnection("","","")){
+            // ...
+        } catch (Exception e) {
+            // ...
+        }
+    }
+}
+```
+
+
+
+例5：
+
+```java
+// 不是线程安全，它的Connection是共享变量，会被多个线程修改，存在问题
+public class MyServlet extends HttpServlet {
+    private UserService userService = new UserServiceImpl();
+
+    public void doGet(HttpServletRequest request, HttpServletResponse response) {
+        userService.update(...);
+    }
+}
+public class UserServiceImpl implements UserService {
+    private UserDao userDao = new UserDaoImpl();
+
+    public void update() {
+        userDao.update();
+    }
+}
+public class UserDaoImpl implements UserDao {
+    private Connection conn = null;
+    public void update() throws SQLException {
+        String sql = "update user set password = ? where username = ?";
+        conn = DriverManager.getConnection("","","");
+        // ...
+        conn.close();
+    }
+}
+```
+
+
+
+例6：
+
+```java
+// 线程安全
+public class MyServlet extends HttpServlet {
+    private UserService userService = new UserServiceImpl();
+
+    public void doGet(HttpServletRequest request, HttpServletResponse response) {
+        userService.update(...);
+    }
+}
+public class UserServiceImpl implements UserService {
+    public void update() {
+        // 因为此处是每次new出来，并不是直接使用的内部的成员变量
+        UserDao userDao = new UserDaoImpl();
+        userDao.update();
+    }
+}
+public class UserDaoImpl implements UserDao {
+    private Connection = null;
+    public void update() throws SQLException {
+        String sql = "update user set password = ? where username = ?";
+        conn = DriverManager.getConnection("","","");
+        // ...
+        conn.close();
+    }
+}
+```
+
+
+
+例7：
+
+```java
+public abstract class Test {
+    public void bar() {
+        // 是否安全
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        foo(sdf);
+    }
+    public abstract foo(SimpleDateFormat sdf);
+    public static void main(String[] args) {
+        new Test().bar();
+    }
+}
+```
+
+其中 `foo` 的行为是不确定的，可能导致不安全的发生，被称之为 **外形方法**
+
+```java
+public void foo(SimpleDateFormat sdf) {
+    String dateStr = "1999-10-11 00:00:00";
+    for (int i = 0; i < 20; i++) {
+        new Thread(() -> {
+            try {
+                sdf.parse(dateStr);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+```
+
+
+
+完成经典售票例子：
+
+```java
+public class ExerciseSell {
+
+    // Random 为线程安全
+    static Random random = new Random();
+
+    // 随机 1~5
+    public static int randomAmount() {
+        return random.nextInt(5) + 1;
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        // 模拟多人买票
+        TicketWindow window = new TicketWindow(1000);
+
+        // 所有线程的集合
+        List<Thread> threadList = new ArrayList<>();
+        // 卖出的票数统计
+        List<Integer> amountList = new Vector<>();
+        for (int i = 0; i < 50000; i++) {
+           Thread thread = new Thread(() -> {
+               // 买票
+               int amount = window.sell(randomAmount());
+               // 统计买票数
+               amountList.add(amount);
+           });
+           threadList.add(thread);
+           thread.start();
+        }
+
+        // 让主线程等待所有线程的执行完毕
+        for (Thread thread : threadList) {
+            thread.join();
+        }
+
+        // 统计卖出的票数和剩余的票数
+        log.debug("余票：{}",window.getCount());
+        log.debug("卖出的票数：{}",amountList.stream().mapToInt(i -> i).sum());
+    }
+}
+
+
+// 售票窗口
+class TicketWindow {
+    // 剩余的票的数量
+    private int count;
+
+    public TicketWindow(int count) {
+        this.count = count;
+    }
+
+    // 获取余票数量
+    public int getCount() {
+        return count;
+    }
+
+    /**
+     * 售票
+     * @param amount        购买数量
+     * @return              0：没卖出去
+     */
+    public synchronized int sell(int amount) {
+        if (this.count >= amount) {
+            this.count -= amount;
+            return amount;
+        }else {
+            return 0;
+        }
+    }
+}
+```
+
+输出：
+
+> 11:15:20.779 c.ExerciseSell [main] - 余票：0
+> 11:15:20.785 c.ExerciseSell [main] - 卖出的票数：1000
