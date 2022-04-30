@@ -2218,3 +2218,141 @@ class TicketWindow {
 
 > 11:15:20.779 c.ExerciseSell [main] - 余票：0
 > 11:15:20.785 c.ExerciseSell [main] - 卖出的票数：1000
+
+
+
+## Monitor 概念
+
+### Java对象头
+
+以32位虚拟机为例
+
+普通对象
+
+```ruby
+|--------------------------------------------------------------|
+| 					Object Header (64 bits) 				   |
+|------------------------------------|-------------------------| 
+| 				 Mark Word (32 bits) |    Klass Word (32 bits) |    
+|------------------------------------|-------------------------|
+```
+
+Klass Word：指针，找到类对象
+
+
+
+数组对象
+
+```java
+|---------------------------------------------------------------------------------|
+| 							Object Header (96 bits) 							  |
+|--------------------------------|-----------------------|------------------------|
+| 		       Mark Word(32bits) |    Klass Word(32bits) |   array length(32bits) |
+|--------------------------------|-----------------------|------------------------|
+```
+
+
+
+其中Mark Word 结构为
+
+```ruby
+|--------------------------------------------------------------------|--------------------|
+|												 Mark Word (64 bits) | 				State |
+|--------------------------------------------------------------------|--------------------|
+|             hashcode:25 | hashcode:31 | age:4 | biased_lock:0 | 01 | 			   Normal |
+|--------------------------------------------------------------------|--------------------|
+| 		           thread:23 | epoch:2  | age:4 | biased_lock:1 | 01 | 			   Biased |
+|--------------------------------------------------------------------|--------------------|
+| 										  ptr_to_lock_record:30 | 00 | Lightweight Locked |
+|--------------------------------------------------------------------|--------------------|
+| 								  ptr_to_heavyweight_monitor:30 | 10 | Heavyweight Locked |
+|--------------------------------------------------------------------|--------------------|
+| 																| 11 | 		Marked for GC |
+|--------------------------------------------------------------------|--------------------|
+```
+
+
+
+### Monitor(锁)
+
+Monitor：称为 **监视器** 或 **管程**
+
+每个Java对象都可以关联一个 monitor 对象，如果使用 synchronized 给对象上锁（重量级）之后，该对象头的 Mark Word 中就被设置指向 Monirot 对象的指针
+
+Monitor 结构如下
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/8de37710641f2478d45003eb1ad237ca_1651302146_PgNhcA2c4v.png)
+
+- 刚开始 Monitor 中的 Owner 为 null
+- 当 Thread-2 执行 synchronized(obj) 就会将 Monitor 的所有者 Owner 置为 Thread-2，Monitor 中只能有一个 Owner
+- 当 Thread-2 上锁的过程中，如果 Thread-3、Thread4、Thread5也来执行 synchronized(obj)，就会进入 EntryList BLOCKED
+- Thread-2 执行完同步代码块的内容，然后唤醒 EntryList 中等待的线程来竞争锁，竞争时是非公平的
+- 图中的 WaitSet 中的 Thread-0、Thread-1 是之前获得过锁，但条件不满足进入 WAITING 状态的线程
+
+> **<font color=red>注意</font>**：
+>
+> - synchronized 必须是进入同一个对象的 monitor 才有上述的效果
+> - 不加 synchronized 的对象不会关联监听器，不遵从以上规则
+
+
+
+#### synchronized 原理
+
+```java
+static final Object lock = new Object();
+static int counter = 0;
+
+public static void main(String[] args) {
+    synchronized (lock) {
+        counter ++;
+    }
+}
+```
+
+对应的字节码
+
+```java
+public static void main(java.lang.String[]);
+	descriptor: ([Ljava/lang/String;)V
+    flags: ACC_PUBLIC, ACC_STATIC
+    Code:
+      stack=2, locals=3, args_size=1
+         0: getstatic		#2				// <- lock 引用（synchronized 开始）
+         3: dup
+         4: astore_1						// lock 引用 -> slot 1
+         5: monitorenter					// 将lock对象 MaarkWord 置为 Monitor 指针
+         6: getstatic		#3				// <- i
+         9: iconst_1						// 准备常数1
+        10: iadd							// +1
+        11: putstatic       #3              // -> i
+        14: aload_1          				// <- lock 引用
+        15: monitorexit						// 将 lock 对象 MarkWord 重置，唤醒 EntryList
+        16: goto			24				
+        19: astore_2						// e-> slot 2
+        20: aload_1							// <- lock 引用
+        21: monitorexit						// 将 lock 对象 MarkWord 重置，唤醒 EntryList
+        22: aload_2							// <- slot 2 (e)
+       	23: athrow							// throw e
+        24: return
+     // 检测的异常范围             
+     Exception table:
+        from	to	target	type
+           6    16      19   any
+          19    22      19   any
+     LineNumberTable:
+         line 8: 0
+         line 9: 6
+         line 10: 14
+         line 11: 24
+ 	 LocalVariableTable:
+ 		Start Length Slot Name Signature
+ 			0  25     0   args [Ljava/lang/String;
+ 	StackMapTable: number_of_entries = 2
+ 		frame_type = 255 /* full_frame */
+ 			offset_delta = 19
+     	    locals = [ class "[Ljava/lang/String;", class java/lang/Object ]
+     		stack = [ class java/lang/Throwable ]
+ 		frame_type = 250 /* chop */
+ 			offset_delta = 4               
+```
+
