@@ -135,37 +135,41 @@ public class TestBiased {
      * @param args
      */
     public static void main(String[] args) {
-        Dog dog = new Dog();
+        Vector<Dog> list = new Vector<>();
 
-        new Thread(() -> {
-            log.debug(getObjectHeader(dog));
-
-            synchronized (dog) {
-                log.debug(getObjectHeader(dog));
+        Thread t1 = new Thread(() -> {
+            for (int i = 0; i < 30; i++) {
+                Dog dog = new Dog();
+                list.add(dog);
+                synchronized (dog) {
+                    log.debug(getObjectHeader(dog));
+                }
             }
-            log.debug(getObjectHeader(dog));
-
-            synchronized (TestBiased.class) {
-                TestBiased.class.notify();
+            synchronized (list) {
+                list.notify();
             }
-        }, "t1").start();
+        }, "t1");
+        t1.start();
 
-        new Thread(() -> {
-            synchronized (TestBiased.class) {
+        Thread t2 = new Thread(() -> {
+            synchronized (list) {
                 try {
-                    TestBiased.class.wait();
+                    list.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-
-            log.debug(getObjectHeader(dog));
-
-            synchronized (dog) {
+            log.debug("==============> ");
+            for (int i = 0; i < 30; i++) {
+                Dog dog = list.get(i);
+                log.debug(getObjectHeader(dog));
+                synchronized (dog) {
+                    log.debug(getObjectHeader(dog));
+                }
                 log.debug(getObjectHeader(dog));
             }
-            log.debug(getObjectHeader(dog));
-        }, "t2").start();
+        }, "t2");
+        t2.start();
     }
 }
 

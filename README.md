@@ -2655,3 +2655,58 @@ t2 一开始也是偏量级锁 101，前面地址也没变，但是在加锁的�
 #### 撤销 - 调用 wait/notify
 
 只有重量级锁才有 wait/notify，所以也会将 偏量级锁/重量级锁 进行撤销
+
+
+
+#### 批量重偏向
+
+如果对象虽然被多个线程访问，但没有竞争，这时偏向了线程 T1 的对象仍有机会重新偏向 T2，重偏向会重置对象的 Thread ID
+
+当撤销偏向锁阈值超过 20 次后，jvm 会认为是否是偏向错了，因此会在给这些对象加锁时重新偏向至加锁线程
+
+```java
+public static void main(String[] args) {
+    Vector<Dog> list = new Vector<>();
+
+    Thread t1 = new Thread(() -> {
+        for (int i = 0; i < 30; i++) {
+            Dog dog = new Dog();
+            list.add(dog);
+            synchronized (dog) {
+                log.debug(getObjectHeader(dog));
+            }
+        }
+        synchronized (list) {
+            list.notify();
+        }
+    }, "t1");
+    t1.start();
+
+    Thread t2 = new Thread(() -> {
+        synchronized (list) {
+            try {
+                list.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        log.debug("==============> ");
+        for (int i = 0; i < 30; i++) {
+            Dog dog = list.get(i);
+            log.debug(getObjectHeader(dog));
+            synchronized (dog) {
+                log.debug(getObjectHeader(dog));
+            }
+            log.debug(getObjectHeader(dog));
+        }
+    }, "t2");
+    t2.start();
+}
+```
+
+输出结果（因为结果太长就不贴上来了）：
+
+t1 运行的时候都是偏向锁，到t2 运行的时候，最开始的状态是：
+偏向锁（偏向T1的）—>轻量级锁—>解锁。如此反复到第20位时，
+
+变为：偏向锁（偏向T2），因为超过撤销阈值后，比对了两个的 hashCode可以得出，之前偏向线程T1的对象，现在变为偏向T2了
