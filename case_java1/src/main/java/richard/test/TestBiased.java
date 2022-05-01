@@ -130,17 +130,42 @@ public class TestBiased {
             }).start();
     }
 
+    /**
+     * log.debug(getObjectHeader(dog));
+     * @param args
+     */
     public static void main(String[] args) {
         Dog dog = new Dog();
-        dog.hashCode(); // 会禁用这个对象的偏向锁：因为调用了该方法之后，会将hash码set到指定的markword中，那么就会变成 normal状态
-        log.debug(getObjectHeader(dog));    // 001
 
-        //main线程,偏向锁
-        synchronized (dog){
-            log.debug(getObjectHeader(dog));    // 00 轻量级锁
-        }
+        new Thread(() -> {
+            log.debug(getObjectHeader(dog));
 
-        log.debug(getObjectHeader(dog));    // 001 释放完锁后，又变成正常不加锁的状态
+            synchronized (dog) {
+                log.debug(getObjectHeader(dog));
+            }
+            log.debug(getObjectHeader(dog));
+
+            synchronized (TestBiased.class) {
+                TestBiased.class.notify();
+            }
+        }, "t1").start();
+
+        new Thread(() -> {
+            synchronized (TestBiased.class) {
+                try {
+                    TestBiased.class.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            log.debug(getObjectHeader(dog));
+
+            synchronized (dog) {
+                log.debug(getObjectHeader(dog));
+            }
+            log.debug(getObjectHeader(dog));
+        }, "t2").start();
     }
 }
 

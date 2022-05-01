@@ -2583,3 +2583,75 @@ public static void main(String[] args) {
 
 
 
+#### 撤销 - 调用对象 hashCode
+
+调用了对象的 hashCode，但偏向锁的对象 MarkWord 中存储的是线程id，如果调用 hashCode 会导致偏向锁被撤销
+
+- 轻量级锁会在锁记录中记录 hashCode
+- 重量级锁会在 Monitor 中记录 hashCode
+
+
+
+#### 撤销 - 其他线程使用对象
+
+当有其他线程使用偏向锁时，会将偏向锁升级为轻量级锁
+
+```java
+public static void main(String[] args) {
+    Dog dog = new Dog();
+
+    new Thread(() -> {
+        log.debug(getObjectHeader(dog));
+
+        synchronized (dog) {
+            log.debug(getObjectHeader(dog));
+        }
+        log.debug(getObjectHeader(dog));
+
+        synchronized (TestBiased.class) {
+            TestBiased.class.notify();
+        }
+    }, "t1").start();
+
+    new Thread(() -> {
+        synchronized (TestBiased.class) {
+            try {
+                TestBiased.class.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        log.debug(getObjectHeader(dog));
+
+        synchronized (dog) {
+            log.debug(getObjectHeader(dog));
+        }
+        log.debug(getObjectHeader(dog));
+    }, "t2").start();
+}
+```
+
+注意：加了 wait/notify 是为了错峰加锁，如果有竞争那就直接变成重量级锁了
+
+输入：
+
+> 16:29:47.821 c.TestBiased [t1] - 00010101 10010011 11100001 00000000 00000000 00000000 00000000 00001101
+> 16:29:47.822 c.TestBiased [t1] - 00010101 10010011 11100001 00000000 00010110 01010000 00011000 00001101
+> 16:29:47.823 c.TestBiased [t1] - 00010101 10010011 11100001 00000000 00010110 01010000 00011000 00001101
+>
+> 16:29:47.823 c.TestBiased [t2] - 00010101 10010011 11100001 00000000 00010110 01010000 00011000 00001101
+> 16:29:47.824 c.TestBiased [t2] - 00010101 10010011 11100001 00000000 00010110 10110000 11110110 10111000
+> 16:29:47.824 c.TestBiased [t2] - 00010101 10010011 11100001 00000000 00000000 00000000 00000000 00001001
+
+解析：
+
+t1 一开始就为偏量级锁，后续加了锁以及释放后也是偏量级
+
+t2 一开始也是偏量级锁 101，前面地址也没变，但是在加锁的时候发现已经有偏量级锁了，所以就会升级为轻量级锁 00，最后释放后，默认的偏量级锁也就变成了无锁状态的 001
+
+
+
+#### 撤销 - 调用 wait/notify
+
+只有重量级锁才有 wait/notify，所以也会将 偏量级锁/重量级锁 进行撤销
