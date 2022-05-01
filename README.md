@@ -2710,3 +2710,63 @@ t1 运行的时候都是偏向锁，到t2 运行的时候，最开始的状态�
 偏向锁（偏向T1的）—>轻量级锁—>解锁。如此反复到第20位时，
 
 变为：偏向锁（偏向T2），因为超过撤销阈值后，比对了两个的 hashCode可以得出，之前偏向线程T1的对象，现在变为偏向T2了
+
+
+
+#### 批量撤销
+
+当撤销偏向锁阈值超过 40 次后，jvm就会认为偏向有问题，根本就不应该偏向。于是整个类的所有对象都会变为不可偏向的，新建的对象也是不可偏向的
+
+```java
+static Thread t1,t2,t3;
+private static void test4() throws InterruptedException {
+    Vector<Dog> list = new Vector<>();
+
+    int loopNumber = 39;
+    t1 = new Thread(() -> {
+        for (int i = 0; i < loopNumber; i++) {
+            Dog dog = new Dog();
+            list.add(dog);
+            synchronized (dog) {
+                log.debug(i + "\t" + getObjectHeader(dog));
+            }
+        }
+        LockSupport.unpark(t2);
+    }, "t1");
+    t1.start();
+
+    t2 = new Thread(() -> {
+        LockSupport.park();
+        log.debug("===============> ");
+        for (int i = 0; i < loopNumber; i++) {
+            Dog dog = list.get(i);
+            log.debug(i + "\t" + getObjectHeader(dog));
+            synchronized (dog) {
+                log.debug(i + "\t" + getObjectHeader(dog));
+            }
+            log.debug(i + "\t" + getObjectHeader(dog));
+        }
+        LockSupport.unpark(t3);
+    }, "t2");
+    t2.start();
+
+    t3 = new Thread(() -> {
+        LockSupport.park();
+        log.debug("===============> ");
+        for (int i = 0; i < loopNumber; i++) {
+            Dog dog = list.get(i);
+            log.debug(i + "\t" + getObjectHeader(dog));
+            synchronized (dog) {
+                log.debug(i + "\t" + getObjectHeader(dog));
+            }
+            log.debug(i + "\t" + getObjectHeader(dog));
+        }
+    }, "t3");
+    t3.start();
+
+    t3.join();
+    log.debug(getObjectHeader(new Dog()));
+}
+```
+
+输出：最后主线程新new的对象，也不会再有偏向锁了

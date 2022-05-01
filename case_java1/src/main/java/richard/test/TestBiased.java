@@ -6,6 +6,7 @@ import org.testng.annotations.Test;
 
 import java.nio.ByteOrder;
 import java.util.*;
+import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -134,44 +135,63 @@ public class TestBiased {
      * log.debug(getObjectHeader(dog));
      * @param args
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        test4();
+    }
+
+    static Thread t1,t2,t3;
+    private static void test4() throws InterruptedException {
         Vector<Dog> list = new Vector<>();
 
-        Thread t1 = new Thread(() -> {
-            for (int i = 0; i < 30; i++) {
+        int loopNumber = 39;
+        t1 = new Thread(() -> {
+            for (int i = 0; i < loopNumber; i++) {
                 Dog dog = new Dog();
                 list.add(dog);
                 synchronized (dog) {
-                    log.debug(getObjectHeader(dog));
+                    log.debug(i + "\t" + getObjectHeader(dog));
                 }
             }
-            synchronized (list) {
-                list.notify();
-            }
+            LockSupport.unpark(t2);
         }, "t1");
         t1.start();
 
-        Thread t2 = new Thread(() -> {
-            synchronized (list) {
-                try {
-                    list.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            log.debug("==============> ");
-            for (int i = 0; i < 30; i++) {
+        t2 = new Thread(() -> {
+            LockSupport.park();
+            log.debug("===============> ");
+            for (int i = 0; i < loopNumber; i++) {
                 Dog dog = list.get(i);
-                log.debug(getObjectHeader(dog));
+                log.debug(i + "\t" + getObjectHeader(dog));
                 synchronized (dog) {
-                    log.debug(getObjectHeader(dog));
+                    log.debug(i + "\t" + getObjectHeader(dog));
                 }
-                log.debug(getObjectHeader(dog));
+                log.debug(i + "\t" + getObjectHeader(dog));
             }
+            LockSupport.unpark(t3);
         }, "t2");
         t2.start();
+
+        t3 = new Thread(() -> {
+            LockSupport.park();
+            log.debug("===============> ");
+            for (int i = 0; i < loopNumber; i++) {
+                Dog dog = list.get(i);
+                log.debug(i + "\t" + getObjectHeader(dog));
+                synchronized (dog) {
+                    log.debug(i + "\t" + getObjectHeader(dog));
+                }
+                log.debug(i + "\t" + getObjectHeader(dog));
+            }
+        }, "t3");
+        t3.start();
+
+        t3.join();
+        log.debug(getObjectHeader(new Dog()));
     }
+
 }
+
+
 
 class Dog {
 
