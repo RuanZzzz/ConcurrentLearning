@@ -2770,3 +2770,16 @@ private static void test4() throws InterruptedException {
 ```
 
 输出：最后主线程新new的对象，也不会再有偏向锁了
+
+
+
+## wait notify
+
+### wait/notify 原理
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/30/8de37710641f2478d45003eb1ad237ca_1651302146_PgNhcA2c4v.png)
+
+- Owner线程发现条件不满足，调用 wait 方法，即可进入 WaitSet 变为 WAITING 状态
+- BLOCKED 和 WAITING 的线程都处于阻塞状态，不占用 CPU 时间片
+- BLOCKED 线程会在 Owner 线程释放锁时唤醒
+- WAITING 线程会在 Owner 线程调用 notify 或 notifyAll 时唤醒，但唤醒后并不意味着立刻获得锁，仍需进入 EntryList 重新竞争
