@@ -2783,3 +2783,77 @@ private static void test4() throws InterruptedException {
 - BLOCKED 和 WAITING 的线程都处于阻塞状态，不占用 CPU 时间片
 - BLOCKED 线程会在 Owner 线程释放锁时唤醒
 - WAITING 线程会在 Owner 线程调用 notify 或 notifyAll 时唤醒，但唤醒后并不意味着立刻获得锁，仍需进入 EntryList 重新竞争
+
+
+
+### API 介绍
+
+- obj.wait() 让进入 object 监视器的线程到 waitSet 等待
+- obj.notify() 在 object 上正在 waitSet 等待的线程中挑一个唤醒
+- obj.notifyAll() 让 object 上正在 waitSet 等待的线程全部唤醒
+
+它们都是线程之间进行协作的手段，都属于 Object 对象的方法。必须获得此对象的锁，才能调用这几个方法
+
+```java
+public class TestWaitNotify {
+    final static Object obj = new Object();
+
+    public static void main(String[] args) {
+        new Thread(() -> {
+            synchronized (obj) {
+                log.debug("执行");
+                try {
+                    obj.wait();     // 让线程在 obj 上一直等待下去
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                log.debug("执行其他代码");
+            }
+        }, "t1").start();
+
+        new Thread(() -> {
+            synchronized (obj) {
+                log.debug("执行");
+                try {
+                    obj.wait();     // 让线程在 obj 上一直等待下去
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                log.debug("执行其他代码");
+            }
+        }, "t2").start();
+
+        // 主线程两秒后执行
+        sleep(2);
+        log.debug("唤醒 obj 上其它线程");
+        synchronized (obj) {
+            //obj.notify();   // 唤醒 obj 上一个线程
+            obj.notifyAll();    // 唤醒 obj 上所有等待线程
+        }
+    }
+}
+```
+
+输出：
+
+① notify() 的情况下
+
+21:43:00.015 c.TestWaitNotify [t1] - 执行
+21:43:00.016 c.TestWaitNotify [t2] - 执行
+21:43:02.025 c.TestWaitNotify [main] - 唤醒 obj 上其它线程
+21:43:02.025 c.TestWaitNotify [t1] - 执行其他代码
+
+② notifyAll() 的情况下
+
+> 21:41:16.358 c.TestWaitNotify [t1] - 执行
+> 21:41:16.359 c.TestWaitNotify [t2] - 执行
+> 21:41:18.371 c.TestWaitNotify [main] - 唤醒 obj 上其它线程
+> 21:41:18.371 c.TestWaitNotify [t2] - 执行其他代码
+> 21:41:18.371 c.TestWaitNotify [t1] - 执行其他代码
+
+**<font color=red>注意</font>**：
+
+wait() 里不加参数，就是无线等待，如果加了参数，那就是到点醒了就会继续往下走；如果加了参数，其他线程提前notify，那么wait的线程也不会一直wait满时间
+
