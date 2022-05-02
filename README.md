@@ -2955,3 +2955,54 @@ public class TestCorrectPostureStep1 {
 - 该例子的 main 没有加 synchronized 就好像主线程是翻窗户进来的
 
 因此，可以使用 wait-notify 进行优化
+
+
+
+step2（TestCorrectPostureStep2类）：
+
+```java
+public class TestCorrectPostureStep2 {
+    static final Object room = new Object();
+    static boolean hasCigarette = false;
+    static boolean hasTakeout = false;
+
+    public static void main(String[] args) {
+        new Thread(() -> {
+            synchronized (room) {
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (!hasCigarette) {
+                    log.debug("没烟，先歇会！");
+                    try {
+                        room.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (hasCigarette) {
+                    log.debug("可以开始干活了");
+                }
+            }
+        }, "小南").start();
+
+        for (int i = 0; i < 5; i++) {
+            new Thread(() -> {
+                synchronized (room) {
+                    log.debug("可以开始干活了");
+                }
+            }, "其它人").start();
+        }
+
+        sleep(1);
+        new Thread(() -> {
+            synchronized (room) {
+                hasCigarette = true;
+                log.debug("烟到了噢！");
+                room.notify();
+            }
+        }, "送烟的").start();
+    }
+}
+```
+
+输出结果正确，`小南` 线程在等待的时候会释放锁，其他人可以正常加锁使用
