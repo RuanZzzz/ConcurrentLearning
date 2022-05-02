@@ -2,6 +2,7 @@ package richard.test;
 
 import lombok.extern.slf4j.Slf4j;
 import richard.demo1.util.Downloader;
+import richard.demo1.util.Sleeper;
 
 import java.io.IOException;
 import java.util.List;
@@ -13,38 +14,47 @@ public class Test20 {
         GuardedObject guardedObject = new GuardedObject();
         new Thread(() -> {
             // 等待结果
-            log.debug("等待结果");
-            List<String> list = (List<String>) guardedObject.get();
-            log.debug("结果的大小是：{}",list.size());
+            log.debug("begin");
+            Object object = guardedObject.get(2000);
+            log.debug("结果是：{}",object);
         }, "t1").start();
 
         new Thread(() -> {
-            log.debug("执行下载");
-            try {
-                List<String> list = Downloader.download();
-                guardedObject.complete(list);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            log.debug("begin");
+            Sleeper.sleep(1);
+            guardedObject.complete(new Object());
         }, "t2").start();
 
     }
 }
 
+// 增加超市效果
 class GuardedObject {
     // 结果
     private Object response;
 
     // 获取结果
-    public Object get() {
+    public Object get(long timeout) {
         synchronized (this) {
+            // 开始时间
+            long begin = System.currentTimeMillis();
+            // 经历的时间
+            long passedTime = 0;
             // 还没有结果
             while (response == null) {
+                // 应该等待的时间
+                long waitTime = timeout - passedTime;
+                // 经历的时间超过了设置的最大等待时间，退出循环
+                if (waitTime <= 0) {
+                    break;
+                }
                 try {
-                    this.wait();
+                    this.wait(waitTime);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+                // 求得经历时间
+                passedTime = System.currentTimeMillis() - begin;
             }
 
             return response;
@@ -59,5 +69,4 @@ class GuardedObject {
             this.notifyAll();
         }
     }
-
 }
