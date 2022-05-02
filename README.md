@@ -3006,3 +3006,170 @@ public class TestCorrectPostureStep2 {
 ```
 
 输出结果正确，`小南` 线程在等待的时候会释放锁，其他人可以正常加锁使用
+
+
+
+step3（TestCorrectPostureStep3）：
+
+```java
+public class TestCorrectPostureStep3 {
+    static final Object room = new Object();
+    static boolean hasCigarette = false;
+    static boolean hasTakeout = false;
+
+    // 虚假唤醒
+    public static void main(String[] args) {
+        new Thread(() -> {
+            synchronized (room) {
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (!hasCigarette) {
+                    log.debug("没烟，先歇会！");
+                    try {
+                        room.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (hasCigarette) {
+                    log.debug("可以开始干活了");
+                } else {
+                    log.debug("没干成活...");
+                }
+            }
+        }, "小南").start();
+
+        new Thread(() -> {
+            synchronized (room) {
+                Thread thread = Thread.currentThread();
+                log.debug("外卖送到没？[{}]", hasTakeout);
+                if (!hasTakeout) {
+                    log.debug("没外卖，先歇会！");
+                    try {
+                        room.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("外卖送到没？[{}]", hasTakeout);
+                if (hasTakeout) {
+                    log.debug("可以开始干活了");
+                } else {
+                    log.debug("没干成活...");
+                }
+            }
+        }, "小女").start();
+
+        sleep(1);
+        new Thread(() -> {
+            synchronized (room) {
+                hasTakeout = true;
+                log.debug("外卖到了噢！");
+                room.notify();
+            }
+        }, "送外卖的").start();
+    }
+}
+```
+
+输出：
+
+使用notify，就是虚假唤醒，并不能正确唤醒到正确的等待线程，这时候只需要将 `notify()` 改为 `notifyAll()`
+
+
+
+step4（TestCorrectPostureStep4）：
+
+```java
+public class TestCorrectPostureStep4 {
+    static final Object room = new Object();
+    static boolean hasCigarette = false;
+    static boolean hasTakeout = false;
+
+    public static void main(String[] args) {
+
+        new Thread(() -> {
+            synchronized (room) {
+                log.debug("有烟没？[{}]", hasCigarette);
+                while (!hasCigarette) {
+                    log.debug("没烟，先歇会！");
+                    try {
+                        room.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (hasCigarette) {
+                    log.debug("可以开始干活了");
+                } else {
+                    log.debug("没干成活...");
+                }
+            }
+        }, "小南").start();
+
+        new Thread(() -> {
+            synchronized (room) {
+                Thread thread = Thread.currentThread();
+                log.debug("外卖送到没？[{}]", hasTakeout);
+                if (!hasTakeout) {
+                    log.debug("没外卖，先歇会！");
+                    try {
+                        room.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("外卖送到没？[{}]", hasTakeout);
+                if (hasTakeout) {
+                    log.debug("可以开始干活了");
+                } else {
+                    log.debug("没干成活...");
+                }
+            }
+        }, "小女").start();
+
+        sleep(1);
+        new Thread(() -> {
+            synchronized (room) {
+                hasTakeout = true;
+                log.debug("外卖到了噢！");
+                room.notifyAll();
+            }
+        }, "送外卖的").start();
+    }
+}
+```
+
+将 `小南` 线程的if 判断改为 while 判断，用于解决虚假唤醒
+
+
+
+##### 模式之保护性暂停
+
+```java
+synchronized (lock) {
+    while(条件不成立) {
+    	// 继续等待
+        lock.wait();
+	}
+    // 成立了就继续执行后续逻辑
+}
+
+// 另一个线程
+synchronized (lock) {
+	lock.notifyAll();
+}
+```
+
+
+
+同步模式之保护性暂停：即 Guarded Suspension，用在一个线程等待另一个线程的执行结果
+
+**<font color=red>要点</font>**：
+
+- 有一个结果需要从一个线程传递到另一个线程，让他们关联同一个 GuardedObject
+- 如果有结果不断从一个线程到另一个线程，那么可以使用消息队列
+- JDK 中，join的实现、Future的实现，采用的就是此模式
+- 因为要等待另一方的结果，因此也是同步模式
+
