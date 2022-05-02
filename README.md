@@ -2857,3 +2857,46 @@ public class TestWaitNotify {
 
 wait() 里不加参数，就是无线等待，如果加了参数，那就是到点醒了就会继续往下走；如果加了参数，其他线程提前notify，那么wait的线程也不会一直wait满时间
 
+
+
+### wait notify的正确使用
+
+#### sleep(long n) 和 wait(long n) 的区别
+
+（1）sleep 是 Thread 方法，而 wait 是 Object 方法
+
+（2）sleep 不需要强制和 synchronized 配合使用，但 wait 需要和 synchronized 一起用
+
+（3）sleep 在睡眠的同事，不会释放对象锁，但 wait 在等待的时候会释放对象锁
+
+共同点：
+
+它们的状态都是 **TIMED_WAITING**
+
+```java
+static final Object lock = new Object();
+
+public static void main(String[] args) {
+    new Thread(() -> {
+        synchronized (lock) {
+            log.debug("获得锁");
+            try {
+                Thread.sleep(20000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }, "t1").start();
+
+    Sleeper.sleep(1);
+    synchronized (lock) {
+        log.debug("获得锁");
+    }
+}
+```
+
+输出：
+
+> 15:23:20.997 c.Test19 [t1] - 获得锁
+
+t1 线程获得锁，sleep后就不释放锁了，所以主线程再也拿不到锁；如果t1线程中的sleep改为 `lock.wait()`，t1线程一进入休息室，那主线程就可以拿到锁了
