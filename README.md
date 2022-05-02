@@ -2900,3 +2900,58 @@ public static void main(String[] args) {
 > 15:23:20.997 c.Test19 [t1] - 获得锁
 
 t1 线程获得锁，sleep后就不释放锁了，所以主线程再也拿不到锁；如果t1线程中的sleep改为 `lock.wait()`，t1线程一进入休息室，那主线程就可以拿到锁了
+
+
+
+#### 实际例子
+
+代码位置：rickard.demo5下
+
+step 1（TestCorrectPostureStep1类）：
+
+```java
+public class TestCorrectPostureStep1 {
+    static final Object room = new Object();
+    static boolean hasCigarette = false; // 有没有烟
+    static boolean hasTakeout = false;
+
+    public static void main(String[] args) {
+        new Thread(() -> {
+            synchronized (room) {
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (!hasCigarette) {
+                    log.debug("没烟，先歇会！");
+                    sleep(2);
+                }
+                log.debug("有烟没？[{}]", hasCigarette);
+                if (hasCigarette) {
+                    log.debug("可以开始干活了");
+                }
+            }
+        }, "小南").start();
+
+        for (int i = 0; i < 5; i++) {
+            new Thread(() -> {
+                synchronized (room) {
+                    log.debug("可以开始干活了");
+                }
+            }, "其它人").start();
+        }
+
+        sleep(1);
+        new Thread(() -> {
+            // 这里能不能加 synchronized (room)？
+            hasCigarette = true;
+            log.debug("烟到了噢！");
+        }, "送烟的").start();
+    }
+}
+```
+
+分析：
+
+- 因为线程 `小南` 关门盖被睡觉，同时 `sleep(2)` 不会释放锁，导致其他线程都会被阻塞
+- 因为 `小南` 线程的阻塞，所以 `送烟` 就算提前送到，也无法立刻醒来
+- 该例子的 main 没有加 synchronized 就好像主线程是翻窗户进来的
+
+因此，可以使用 wait-notify 进行优化
