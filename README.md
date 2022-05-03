@@ -3401,3 +3401,108 @@ class GuardedObject {
 ![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/aea21b696ff866c5380babea6a01c1ba_1651564205_C6TDuALj1d.png)
 
 （**注**：消息队列中的字母，仅代表每个线程产生的消息代号）
+
+
+
+##### 实现
+
+```java
+public class Test21 {
+    public static void main(String[] args) {
+        MessageQueue queue = new MessageQueue(2);
+
+        for (int i = 0; i < 3; i++) {
+            int id = i;
+            new Thread(() -> {
+                queue.put(new Message(id, "值" + id));
+            }, "生产者" + i).start();
+        }
+
+        new Thread(() -> {
+            while (true) {
+                sleep(1);
+                Message message = queue.take();
+            }
+        }, "消费者").start();
+    }
+}
+
+// 消息队列类（用于Java线程之间的通信，MQ是进程之间的通信）
+@Slf4j(topic = "c.MessageQueue")
+class MessageQueue {
+    // 消息的队列集合
+    private LinkedList<Message> list = new LinkedList<>();
+    // 队列容量
+    private int capcity;
+
+    public MessageQueue(int capcity) {
+        this.capcity = capcity;
+    }
+
+    // 获取消息
+    public Message take() {
+        // 检查对象是否为空
+        synchronized (list) {
+            while (list.isEmpty()) {
+                try {
+                    log.debug("队列为空，消费者线程等待");
+                    list.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // 从队列头部获取消息并返回
+            Message message = list.removeFirst();
+            log.debug("已消费消息{}",message);
+            list.notifyAll();
+            return message;
+        }
+    }
+
+    // 存入消息
+    public void put(Message message) {
+        synchronized (list) {
+            // 检查对象是否已经满了
+            while (list.size() == capcity) {
+                try {
+                    log.debug("队列已满，生产者线程等待");
+                    list.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            // 将消息胶乳队列尾部
+            list.addLast(message);
+            log.debug("已生产信息{}",message);
+            list.notifyAll();
+        }
+    }
+}
+
+final class Message {
+    private int id;
+    private Object value;
+
+    public int getId() {
+        return id;
+    }
+
+    public Object getValue() {
+        return value;
+    }
+
+    public Message(int id, Object value) {
+        this.id = id;
+        this.value = value;
+    }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "id=" + id +
+                ", value=" + value +
+                '}';
+    }
+}
+```
