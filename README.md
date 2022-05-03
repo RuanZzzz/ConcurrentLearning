@@ -3557,6 +3557,68 @@ public static void main(String[] args) {
 
 与 Object 的 wait & notify 相比
 
-- wait、notify和notifyAll 必须配合 Object Monitor 一起使用，而 unpark 不必
+- wait、notify和notifyAll 必须配合 Object Monitor 一起使用，而 park & unpark 不必
 - park & unpark 是以线程为单位来【阻塞】和【唤醒】线程，而 notify 只能随机唤醒一个等待线程，notifyAll 是唤醒所有等待线程，就不那么【精确】
-- park & unpark 可以先 unpark，而 wait & notify 不能先 notify
+- park & unpark 可以先 unpark，而 wait & notify 不能先  notify
+
+
+
+### park & unpark 的原理
+
+每个线程都有自己的一个 Parker 对象，由三部分组成 ` _counter`（信号量）、`_cond`（条件变量） 和  `_mutex`（互斥量）
+
+举例子：
+
+- 线程就像一个旅人，Parker 就像他随身携带的背包，**条件变量**就好比背包中的**帐篷**，_counter 就好比背包中的备用干粮（0为耗尽，1为充足）
+- 调用 park 就是要看需不需要停下来歇息
+  - 如果备用干粮耗尽，那么钻进 **帐篷** 歇息
+  - 如果备用干粮充足，那么不需要停留，继续前进
+- 调用 unpark，就好比令干粮充足
+  - 如果这时线程还在 **帐篷**，就唤醒让他继续前进
+  - 如果这时线程还在运行，那么下次他调用 park 时，仅是消耗备用干粮，不需停留继续前进
+    - 因为背包空间有限，多次调用 unpark 仅会补充一次备份干粮
+
+
+
+图解1-先调用park方法：
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/de8881d0ce0f88d34237d22803edbb9f_1651573087_yeieCvGtAK.png)
+
+1、当前线程调用 Unsafe.park() 方法
+
+2、检查 _counter，当情况为0，这时获得 _mutex 互斥锁
+
+3、线程进入 _cond 条件变量阻塞
+
+4、设置 _counter=0
+
+
+
+图解2-先调用unpark方法：
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/8a9d2e95b008ff8300b4ba7f3193915e_1651573484_QjrrK7xri5.png)
+
+1、调用 Unsafe.unpark(Thread_0)方法，设置 _counter 为1
+
+2、唤醒 _cond 条件变量中的 Thread_0
+
+3、Thread_0 恢复运行
+
+4、设置 _counter 为0
+
+
+
+图解3-先调用 unpark，在调用 park：
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/39777c2b2e78f40d393bd40b9f2c0385_1651573801_1w2lBr9lc9.png)
+
+1、调用 Unsafe.unpark(Thread_0) 方法，设置 _counter为1
+
+2、当前线程调用 Unsafe.park() 方法
+
+3、检查 _counter，本情况为1，这时线程无需阻塞，继续运行
+
+4、设置 _counter 为0
+
+
+
