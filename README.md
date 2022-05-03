@@ -3145,7 +3145,7 @@ public class TestCorrectPostureStep4 {
 
 
 
-##### 模式之保护性暂停
+##### 模式之保护性暂停（Guarded Suspension）
 
 ```java
 synchronized (lock) {
@@ -3239,3 +3239,154 @@ class GuardedObject {
     }
 }
 ```
+
+
+
+###### 扩展（解耦—重要例子）
+
+如果需要多在多个类之间使用 GuardObject 对象，作为参数传递不是很方便，因此设计一个用来解耦的中间类，这样不仅能够解耦 【结果等待者】和【结果生产者】，还能够同时支持多个任务的管理
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/5ad2d7b15c25d90608730b67f96ad752_1651559157_uYAFNEcORZ.png)
+
+```java
+// 这里的邮递员和居民是一一对应的关系，一个邮递员给一个居民送信
+public class Test20 {
+    public static void main(String[] args) {
+        // 居民收信
+        for (int i = 0; i < 3; i++) {
+            new People().start();
+        }
+        Sleeper.sleep(1);
+        for (Integer id : MailBoxes.getIds()) {
+            new PostMan(id, "内容" + id).start();
+        }
+    }
+}
+
+// 居民
+class People extends Thread {
+    @Override
+    public void run() {
+        // 收信
+        GuardedObject guardedObject = MailBoxes.createGuardedObject();
+        log.debug("开始收信 id:{}",guardedObject.getId());
+        Object mail = guardedObject.get(5000);
+        log.debug("收到信 id:{},内容:{}",guardedObject.getId(),mail);
+    }
+}
+
+// 邮递员
+class PostMan extends Thread{
+    // 邮件id
+    private int id;
+    private String mail;
+
+    public PostMan(int id, String mail) {
+        this.id = id;
+        this.mail = mail;
+    }
+
+    @Override
+    public void run() {
+        // 发信
+        GuardedObject guardedObject = MailBoxes.getGuardedObject(id);
+        log.debug("送信 id:{},内容:{}",id,mail);
+        guardedObject.complete(mail);
+    }
+}
+
+class MailBoxes {
+    private static Map<Integer,GuardedObject> boxes = new Hashtable<>();
+
+    private static int id = 1;
+    // 产生唯一id
+    public static synchronized int generateId() {
+        return id++;
+    }
+
+    public static GuardedObject getGuardedObject(int id) {
+        return boxes.remove(id);
+    }
+
+    public static GuardedObject createGuardedObject() {
+        GuardedObject go = new GuardedObject(generateId());
+        boxes.put(go.getId(),go);
+        return go;
+    }
+
+    public static Set<Integer> getIds() {
+        return boxes.keySet();
+    }
+}
+
+// 增加超市效果
+class GuardedObject {
+    // 标识 Guarded Object
+    private int id;
+    public GuardedObject(int id) {
+        this.id = id;
+    }
+    public int getId() {
+        return id;
+    }
+
+    // 结果
+    private Object response;
+    // 获取结果
+    public Object get(long timeout) {
+        synchronized (this) {
+            // 开始时间
+            long begin = System.currentTimeMillis();
+            // 经历的时间
+            long passedTime = 0;
+            // 还没有结果
+            while (response == null) {
+                // 应该等待的时间
+                long waitTime = timeout - passedTime;
+                // 经历的时间超过了设置的最大等待时间，退出循环
+                if (waitTime <= 0) {
+                    break;
+                }
+                try {
+                    this.wait(waitTime);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                // 求得经历时间
+                passedTime = System.currentTimeMillis() - begin;
+            }
+            return response;
+        }
+    }
+
+    // 产生结果
+    public void complete(Object response) {
+        synchronized (this) {
+            // 给结果成员变量赋值
+            this.response = response;
+            this.notifyAll();
+        }
+    }
+}
+```
+
+输出：
+
+> 14:57:35.066 c.People [Thread-1] - 开始收信 id:3
+> 14:57:35.066 c.People [Thread-0] - 开始收信 id:1
+> 14:57:35.066 c.People [Thread-2] - 开始收信 id:2
+> 14:57:36.080 c.PostMan [Thread-3] - 送信 id:3,内容:内容3
+> 14:57:36.080 c.People [Thread-1] - 收到信 id:3,内容:内容3
+> 14:57:36.080 c.PostMan [Thread-4] - 送信 id:2,内容:内容2
+> 14:57:36.080 c.People [Thread-2] - 收到信 id:2,内容:内容2
+> 14:57:36.080 c.PostMan [Thread-5] - 送信 id:1,内容:内容1
+> 14:57:36.080 c.People [Thread-0] - 收到信 id:1,内容:内容1
+
+解耦结果产生者和消费者
+
+
+
+
+
+
+
