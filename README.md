@@ -2859,9 +2859,9 @@ wait() 里不加参数，就是无线等待，如果加了参数，那就是到�
 
 
 
-### wait notify的正确使用
+## wait notify的正确使用
 
-#### sleep(long n) 和 wait(long n) 的区别
+### sleep(long n) 和 wait(long n) 的区别
 
 （1）sleep 是 Thread 方法，而 wait 是 Object 方法
 
@@ -2903,7 +2903,7 @@ t1 线程获得锁，sleep后就不释放锁了，所以主线程再也拿不到
 
 
 
-#### 实际例子
+### 实际例子
 
 代码位置：rickard.demo5下
 
@@ -3145,7 +3145,7 @@ public class TestCorrectPostureStep4 {
 
 
 
-#### 同步模式之保护性暂停（Guarded Suspension）
+### 同步模式之保护性暂停（Guarded Suspension）
 
 ```java
 synchronized (lock) {
@@ -3242,7 +3242,7 @@ class GuardedObject {
 
 
 
-##### 扩展（解耦—重要例子）
+#### 扩展（解耦—重要例子）
 
 如果需要多在多个类之间使用 GuardObject 对象，作为参数传递不是很方便，因此设计一个用来解耦的中间类，这样不仅能够解耦 【结果等待者】和【结果生产者】，还能够同时支持多个任务的管理
 
@@ -3386,9 +3386,9 @@ class GuardedObject {
 
 
 
-#### 异步模式之生产者/消费者
+### 异步模式之生产者/消费者
 
-##### 定义
+#### 定义
 
 要点：
 
@@ -3404,7 +3404,7 @@ class GuardedObject {
 
 
 
-##### 实现
+#### 实现
 
 ```java
 public class Test21 {
@@ -3506,3 +3506,57 @@ final class Message {
     }
 }
 ```
+
+
+
+## Park & Unpark
+
+### 基本使用
+
+它们是 LockSupport 类中的方法
+
+```java
+// 暂停当前线程
+LockSupport.park();
+
+// 恢复某个线程的运行
+LockSupport.unpark(暂停线程对象)
+```
+
+先park，再 unpark
+
+```java
+public static void main(String[] args) {
+    Thread t1 = new Thread(() -> {
+        log.debug("start ...");
+        sleep(1);
+        log.debug("park ...");
+        LockSupport.park();
+        log.debug("resume");
+    }, "t1");
+    t1.start();
+
+    sleep(2);
+    log.debug("unpark ...");
+    LockSupport.unpark(t1);
+}
+```
+
+输出：
+
+> 17:35:21.341 c.TestMultiLock [t1] - start ...
+> 17:35:22.357 c.TestMultiLock [t1] - park ...
+> 17:35:23.354 c.TestMultiLock [main] - unpark ...
+> 17:35:23.354 c.TestMultiLock [t1] - resume
+
+**<font color=red>注意</font>**：如果将sleep的时间改变一些，使得执行顺序为先 `unpark` ，再执行 `park`，那么 `unpark`  既可以在 `park` 之前调用，也可以在 `park` 之后调用，都可以恢复指定线程的运行
+
+
+
+### 特点
+
+与 Object 的 wait & notify 相比
+
+- wait、notify和notifyAll 必须配合 Object Monitor 一起使用，而 unpark 不必
+- park & unpark 是以线程为单位来【阻塞】和【唤醒】线程，而 notify 只能随机唤醒一个等待线程，notifyAll 是唤醒所有等待线程，就不那么【精确】
+- park & unpark 可以先 unpark，而 wait & notify 不能先 notify
