@@ -3145,7 +3145,7 @@ public class TestCorrectPostureStep4 {
 
 
 
-##### 模式之保护性暂停（Guarded Suspension）
+#### 同步模式之保护性暂停（Guarded Suspension）
 
 ```java
 synchronized (lock) {
@@ -3242,7 +3242,7 @@ class GuardedObject {
 
 
 
-###### 扩展（解耦—重要例子）
+##### 扩展（解耦—重要例子）
 
 如果需要多在多个类之间使用 GuardObject 对象，作为参数传递不是很方便，因此设计一个用来解耦的中间类，这样不仅能够解耦 【结果等待者】和【结果生产者】，还能够同时支持多个任务的管理
 
@@ -3386,7 +3386,18 @@ class GuardedObject {
 
 
 
+#### 异步模式之生产者/消费者
 
+##### 定义
 
+要点：
 
+- 与前面的保护性暂停中的 GuardObject 不同，**不需要产生结果和消费结果的线程一一对应**
+- 消费队列可以采用平衡生产和消费的线程资源
+- 生产者仅负责产生结果数据，不关心数据如何处理，而消费者专心处理结果数据
+- 消息队列是有容量限制的，**满时不会再加入数据，空时不会再消耗数据**
+- JDK 中各种阻塞队列，采用的就是这种模式
 
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/aea21b696ff866c5380babea6a01c1ba_1651564205_C6TDuALj1d.png)
+
+（**注**：消息队列中的字母，仅代表每个线程产生的消息代号）
