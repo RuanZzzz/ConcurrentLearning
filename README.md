@@ -980,7 +980,7 @@ t1 为守护线程，当非守护线程（main主线程）运行结束了，即�
 
 
 
-## 六种状态
+## 六种状态（重要）
 
 从 Java API层面来描述
 
@@ -3610,7 +3610,7 @@ public static void main(String[] args) {
 
 图解3-先调用 unpark，在调用 park：
 
-![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/39777c2b2e78f40d393bd40b9f2c0385_1651573801_1w2lBr9lc9.png)
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/03/bc3445caf4cd1a551967c55320d251b7_1651573989_oJYTU3Ko1P.png)
 
 1、调用 Unsafe.unpark(Thread_0) 方法，设置 _counter为1
 
@@ -3622,3 +3622,82 @@ public static void main(String[] args) {
 
 
 
+## 重新理解线程状态
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202204/25/a32bf8e38f91a41b74e6456b307ae4fc_1650898518_Js1A242gvj.png)
+
+情况1 NEW —> RUNNABLE
+
+- 当调用 `t.start()` 方法时，由 NEW —> RUNNABLE 
+
+
+
+情况2 RUNNABLE <—> WAITING
+
+t线程用 synchronized(obj) 获取了对象锁后
+
+- 调用 obj.wait() 方法时，t线程从 RUNNABLE —> WAITING
+- 调用 obj.notify()、obj.notifyAll()、t.interrupt() 时
+  - 竞争锁成功，t线程从 WAITING —> RUNNABLE
+  - 竞争锁失败，t线程从 WAITING —> BLOCKED
+
+
+
+情况3 RUNNABLE <—> WAITING
+
+- 当前线程调用 t.join() 方法时，**当前线程**从 RUNNABLE —> WAITING
+  - 注意是当前线程在t线程对象的监视器上等待
+- t线程运行结束，或调用了当前线程的 interrupt() 时，当前线程从 WAITING —> RUNNABLE
+
+
+
+情况4 RUNNABLE <—> WAITING
+
+- 当前线程调用 LockSupport.park() 方法会让当前线程从 RUNNABLE —> WAITING
+- 调用 LockSupport.unpark(目标线程)或调用了线程的 interrupt()，会让目标线程从 WAITING —> RUNNABLE
+
+
+
+情况5 RUNNABLE  <—>  TIMED_WAITING
+
+t线程用 synchronized(obj) 获取了对象锁后
+
+- 调用 obj.wait(long n) 方法时，t线程从 RUNNABLE —> TIMED_WAITING
+- t线程等待时间超过了 n 毫秒，或调用 obj.notify()、obj.notifyAll()、t.interrupt() 时
+  - 竞争锁成功，t线程从 TIMED_WAITING —> RUNNABLE
+  - 竞争锁失败，t线程从 TIMED_WAITING —> BLOCKED 
+
+
+
+情况6 RUNNABLE <—> TIMED_WAITING
+
+- 当前线程调用 t.join(long n) 方法时，当前线程从 RUNNABLE —> TIMED_WAITING
+  - 注意是当前线程在t线程对象的监视器上等待
+- 当前线程等待时间超过了 n 毫秒，或t线程运行结束，或调用了当前线程的 interrupt() 时，当前线程从TIMED_WAITING —> RUNNABLE
+
+
+
+情况7 RUNNABLE <—> TIMED_WAITING
+
+- 当前线程调用 Thread.sleep(long n)，当前线程从 RUNNABLE —> TIMED_WAITING
+- 当前线程等待时间超过了 n 毫秒，当前线程从 TIMED_WAITING —> RUNNABLE
+
+
+
+情况8 RUNNABLE <—> TIMED_WAITING
+
+- 当前线程调用 LockSupport.parkNanos(long nanos) 或 LockSupport.parkUntil(long millis)时，当前线程从 RUNNABLE —> TIMED_WAITING
+- 调用 LockSupport.unpark(目标线程)或调用了线程的 interrupt()，或是等待超时，会让目标线程从 TIMED_WAITING —> RUNNABLE
+
+
+
+情况9 RUNNABLE <—> BLOCKED
+
+- 线程用 synchronized(obj) 获取了对象锁时如果竞争失败，从 RUNNABLE —> BLOCKED
+- 持 obj 锁线程的同步代码块执行完毕，会唤醒该对象上所有 BLOCKED 的线程重新竞争，如果其中 t线程竞争成功，从BLOCKED —> RUNNABLE，其它失败的线程仍然 BLOCKED
+
+
+
+情况10 RUNNABLE <—> TERMINATED
+
+当前线程所有代码运行完毕，进入 TERMINATED
