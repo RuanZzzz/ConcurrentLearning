@@ -2,6 +2,101 @@
 
 
 
+- [进程与线程](#进程与线程)
+  - [应用](#应用)
+    - [应用之异步调用](#应用之异步调用)
+- [Java线程](#java线程)
+  - [创建和运行线程](#创建和运行线程)
+    - [**方法一：直接使用Thread**](#方法一直接使用thread)
+    - [**方法二：使用Runnable配合Thread**](#方法二使用runnable配合thread)
+    - [原理之 Thread 与 Runnable 的关系](#原理之-thread-与-runnable-的关系)
+    - [方法三：FutureTask配合Thread](#方法三futuretask配合thread)
+  - [观察多个线程同时运行](#观察多个线程同时运行)
+  - [查看进程线程的方法](#查看进程线程的方法)
+    - [Windows](#windows)
+    - [Linux](#linux)
+    - [Java](#java)
+  - [线程运行原理](#线程运行原理)
+    - [栈与栈帧](#栈与栈帧)
+    - [线程上下文切换（Thread Context Switch）](#线程上下文切换thread-context-switch)
+  - [常见的方法](#常见的方法)
+  - [star与run](#star与run)
+  - [sleep与yield](#sleep与yield)
+    - [sleep](#sleep)
+    - [yield](#yield)
+    - [线程优先级](#线程优先级)
+    - [sleep应用—防止CPU占用 100%](#sleep应用防止cpu占用-100)
+      - [sleep实现](#sleep实现)
+  - [join方法](#join方法)
+    - [应用之同步](#应用之同步)
+    - [有实效的join](#有实效的join)
+  - [interrupt方法](#interrupt方法)
+    - [打断sleep、wait、join的线程](#打断sleepwaitjoin的线程)
+    - [打断正常运行的线程](#打断正常运行的线程)
+    - [模式之两阶段终止](#模式之两阶段终止)
+    - [打断park线程](#打断park线程)
+  - [不推荐使用的方法](#不推荐使用的方法)
+  - [主线程和守护线程](#主线程和守护线程)
+  - [五种状态](#五种状态)
+  - [六种状态（重要）](#六种状态重要)
+    - [代码实现](#代码实现)
+- [**共享模型之管程**](#共享模型之管程)
+  - [共享带来的问题](#共享带来的问题)
+    - [Java例子](#java例子)
+    - [临界区Critical Section](#临界区critical-section)
+    - [竞态条件 Race Condition](#竞态条件-race-condition)
+  - [synchronized 解决方案](#synchronized-解决方案)
+    - [应用之互斥](#应用之互斥)
+    - [synchronized](#synchronized)
+    - [面向对象改进](#面向对象改进)
+  - [方法上的synchronized](#方法上的synchronized)
+    - [“线程八锁”](#线程八锁)
+  - [变量的线程安全分析](#变量的线程安全分析)
+    - [成员变量和静态变量是否线程安全](#成员变量和静态变量是否线程安全)
+    - [局部变量是否线程安全](#局部变量是否线程安全)
+    - [常见线程安全类](#常见线程安全类)
+      - [线程安全类方法的组合](#线程安全类方法的组合)
+      - [不可变类线程安全性](#不可变类线程安全性)
+      - [有趣的例子](#有趣的例子)
+  - [Monitor 概念](#monitor-概念)
+    - [Java对象头](#java对象头)
+    - [Monitor(锁)](#monitor锁)
+  - [synchronized 原理](#synchronized-原理)
+    - [轻量级锁](#轻量级锁)
+    - [膨胀锁](#膨胀锁)
+    - [自旋优化](#自旋优化)
+    - [偏向锁](#偏向锁)
+      - [偏向状态](#偏向状态)
+      - [撤销 - 调用对象 hashCode](#撤销---调用对象-hashcode)
+      - [撤销 - 其他线程使用对象](#撤销---其他线程使用对象)
+      - [撤销 - 调用 wait/notify](#撤销---调用-waitnotify)
+      - [批量重偏向](#批量重偏向)
+      - [批量撤销](#批量撤销)
+  - [wait notify](#wait-notify)
+    - [wait/notify 原理](#waitnotify-原理)
+    - [API 介绍](#api-介绍)
+  - [wait notify的正确使用](#wait-notify的正确使用)
+    - [sleep(long n) 和 wait(long n) 的区别](#sleeplong-n-和-waitlong-n-的区别)
+    - [实际例子](#实际例子)
+    - [同步模式之保护性暂停（Guarded Suspension）](#同步模式之保护性暂停guarded-suspension)
+      - [扩展（解耦—重要例子）](#扩展解耦重要例子)
+    - [异步模式之生产者/消费者](#异步模式之生产者消费者)
+      - [定义](#定义)
+      - [实现](#实现)
+  - [Park & Unpark](#park--unpark)
+    - [基本使用](#基本使用)
+    - [特点](#特点)
+    - [park & unpark 的原理](#park--unpark-的原理)
+  - [重新理解线程状态](#重新理解线程状态)
+  - [多把锁](#多把锁)
+    - [多把不相干的锁](#多把不相干的锁)
+  - [活跃性](#活跃性)
+    - [死锁](#死锁)
+    - [定位死锁](#定位死锁)
+    - [哲学家就餐问题（重点）](#哲学家就餐问题重点)
+
+
+
 # 进程与线程
 
 ## 应用
@@ -2502,7 +2597,7 @@ public static void method1() {
 
 轻量级锁在没有竞争时（就自己这个线程），每次重入仍然需要执行 CAS 操作
 
-Java6 中引入了偏向锁来作进一步优化：只有第一次使用 CAS 将线程ID设置到对象的 Mark Word头，之后发现朱哥线程ID是自己的就表示没有竞争，不用重新 CAS。以后只要不发生竞争，这个对象就归该线程所有
+Java6 中引入了偏向锁来作进一步优化：只有第一次使用 CAS 将线程ID设置到对象的 Mark Word头，之后发现这个线程ID是自己的就表示没有竞争，不用重新 CAS。以后只要不发生竞争，这个对象就归该线程所有
 
 例如：
 
@@ -3909,3 +4004,4 @@ richard.demo6.deadlock.v1.Philosopher.run(TestDeadLock.java:41)
 ......
 ```
 
+这种线程没有按预期结束，执行不下去的情况，归类为【活跃性】问题，除了死锁以外，还有活锁和饥饿者两种情况
