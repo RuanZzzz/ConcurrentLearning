@@ -3797,3 +3797,115 @@ private static void test1() {
     t2.start();
 }
 ```
+
+
+
+### 定位死锁
+
+- 检测死锁可以使用 jconsole工具，或者使用 jps 定位进程 id，再用 jstack 定位死锁
+
+- 避免死锁要注意加锁顺序 
+- 另外如果由于某个线程进入了死循环，导致其它线程一直等待，对于这种情况 linux 下可以通过 top 先定位到 CPU 占用高的 Java 进程，再利用 top -Hp 进程id 来定位是哪个线程，最后再用 jstack 排查
+
+
+
+### 哲学家就餐问题（重点）
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/05/abc49ed10b01ce26d3d40875ba780ad2_1651761313_ctfjpbuMER.png)
+
+有五位哲学家，围坐在圆桌旁
+
+- 他们只做两件事，思考和吃饭，思考一会吃口饭，吃完饭后接着思考。 
+- 吃饭时要用两根筷子吃，桌上共有 5 根筷子，每位哲学家左右手边各有一根筷子。 
+- 如果筷子被身边的人拿着，自己就得等待
+
+
+
+产生死锁的代码：
+
+```java
+public class TestDeadLock {
+    public static void main(String[] args) {
+        Chopstick c1 = new Chopstick("1");
+        Chopstick c2 = new Chopstick("2");
+        Chopstick c3 = new Chopstick("3");
+        Chopstick c4 = new Chopstick("4");
+        Chopstick c5 = new Chopstick("5");
+        new Philosopher("苏格拉底", c1, c2).start();
+        new Philosopher("柏拉图", c2, c3).start();
+        new Philosopher("亚里士多德", c3, c4).start();
+        new Philosopher("赫拉克利特", c4, c5).start();
+        new Philosopher("阿基米德", c5, c1).start();
+    }
+}
+
+// 哲学家类
+class Philosopher extends Thread {
+    Chopstick left;
+    Chopstick right;
+
+    public Philosopher(String name, Chopstick left, Chopstick right) {
+        super(name);
+        this.left = left;
+        this.right = right;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            //　尝试获得左手筷子
+            synchronized (left) {
+                // 尝试获得右手筷子
+                synchronized (right) {
+                    eat();
+                }
+            }
+        }
+    }
+
+    Random random = new Random();
+    private void eat() {
+        log.debug("eating...");
+        Sleeper.sleep(1);   // 思考
+    }
+}
+
+// 筷子类
+class Chopstick {
+    String name;
+
+    public Chopstick(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "筷子{" + name + '}';
+    }
+}
+```
+
+造成死锁的原因就是当每个哲学家都拿起筷子，都不放下，别人就无法拿到另根筷子吃饭
+
+使用 jconsole 检测死锁，可以发现
+
+```shell
+名称: 阿基米德
+状态: richard.demo6.deadlock.v1.Chopstick@1d17bf0上的BLOCKED, 拥有者: 苏格拉底
+总阻止数: 1, 总等待数: 0
+
+堆栈跟踪: 
+richard.demo6.deadlock.v1.Philosopher.run(TestDeadLock.java:41)
+   - 已锁定 richard.demo6.deadlock.v1.Chopstick@19b4452
+
+名称: 苏格拉底
+状态: richard.demo6.deadlock.v1.Chopstick@dc9487上的BLOCKED, 拥有者: 柏拉图
+总阻止数: 2, 总等待数: 3
+
+堆栈跟踪: 
+richard.demo6.deadlock.v1.Philosopher.run(TestDeadLock.java:41)
+   - 已锁定 richard.demo6.deadlock.v1.Chopstick@1d17bf0
+
+......
+```
+
