@@ -3749,3 +3749,51 @@ class BigRoom {
 - 坏处：如果一个线程需要同时获得多把锁，容易发生死锁
 
 （**注意**：资源之间是互不关联的，就可以用多把锁）
+
+
+
+## 活跃性
+
+### 死锁
+
+当出现该情况时：**一个线程需要同时获取多把锁，这时就容易发生<font color=red>死锁</font>**
+
+t1线程获得A对象锁，接下来想获取B对象的锁
+
+t2线程获得B对象锁，接下来想获取A对象的锁
+
+例如：
+
+```java
+public static void main(String[] args) {
+    test1();
+}
+
+private static void test1() {
+    Object A = new Object();
+    Object B = new Object();
+    Thread t1 = new Thread(() -> {
+        synchronized (A) {
+            log.debug("lock A");
+            sleep(1);
+            synchronized (B) {
+                log.debug("lock B");
+                log.debug("操作...");
+            }
+        }
+    }, "t1");
+
+    Thread t2 = new Thread(() -> {
+        synchronized (B) {
+            log.debug("lock B");
+            sleep(0.5);
+            synchronized (A) {
+                log.debug("lock A");
+                log.debug("操作...");
+            }
+        }
+    }, "t2");
+    t1.start();
+    t2.start();
+}
+```
