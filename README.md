@@ -3701,3 +3701,51 @@ t线程用 synchronized(obj) 获取了对象锁后
 情况10 RUNNABLE <—> TERMINATED
 
 当前线程所有代码运行完毕，进入 TERMINATED
+
+
+
+## 多把锁
+
+### 多把不相干的锁
+
+```java
+public class TestMultiLock {
+    public static void main(String[] args) {
+        BigRoom bigRoom = new BigRoom();
+        new Thread(() -> {
+            bigRoom.study();
+        }, "小南").start();
+
+        new Thread(() -> {
+            bigRoom.sleep();
+        }, "小女").start();
+    }
+}
+
+class BigRoom {
+    private final Object studyRoom = new Object();
+    private final Object bedRoom = new Object();
+
+    public void sleep() {
+        // synchronized (this)
+        synchronized (bedRoom) {
+            log.debug("sleeping 2 小时");
+            Sleeper.sleep(2);
+        }
+    }
+    public void study() {
+        // synchronized (this)
+        synchronized (studyRoom) {
+            log.debug("study 1 小时");
+            Sleeper.sleep(1);
+        }
+    }
+}
+```
+
+使用多把锁，将锁的粒度细分
+
+- 好处：可以增强并发度
+- 坏处：如果一个线程需要同时获得多把锁，容易发生死锁
+
+（**注意**：资源之间是互不关联的，就可以用多把锁）
