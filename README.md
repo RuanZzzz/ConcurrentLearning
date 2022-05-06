@@ -4142,9 +4142,59 @@ public class Test22 {
 
 输出：
 
-```shell
-21:46:27.275 c.Test22 [main] - enter main
-21:46:27.276 c.Test22 [main] - enter m1
-21:46:27.276 c.Test22 [main] - enter m2
+> 21:46:27.275 c.Test22 [main] - enter main
+> 21:46:27.276 c.Test22 [main] - enter m1
+> 21:46:27.276 c.Test22 [main] - enter m2
+
+
+
+### 可打断
+
+```java
+public class Test22_1 {
+    private static ReentrantLock lock =new ReentrantLock();
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            // 第一个 try 仅用于捕获异常
+            try {
+                // 如果没有竞争 那么此方法就会获取 lock 对象锁
+                // 如果有竞争就进入阻塞队列，可以被其它线程用 interrupt 方法打断
+                log.debug("尝试获得锁");
+                lock.lockInterruptibly();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                log.debug("没有获得锁，返回");
+                return;
+            }
+            try {
+                // 临界区
+                log.debug("获取到锁");
+            } finally {
+                // 释放锁
+                lock.unlock();
+            }
+        }, "t1");
+
+        lock.lock();
+        t1.start();
+
+        sleep(1);
+        log.debug("打断 t1");
+        t1.interrupt();
+    }
+}
 ```
 
+输出：
+
+> 21:58:40.911 c.Test22_1 [t1] - 尝试获得锁
+> 21:58:41.921 c.Test22_1 [main] - 打断 t1
+> 21:58:41.921 c.Test22_1 [t1] - 没有获得锁，返回
+> java.lang.InterruptedException
+> 	at java.util.concurrent.locks.AbstractQueuedSynchronizer.doAcquireInterruptibly(AbstractQueuedSynchronizer.java:898)
+> 	at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireInterruptibly(AbstractQueuedSynchronizer.java:1222)
+> 	at java.util.concurrent.locks.ReentrantLock.lockInterruptibly(ReentrantLock.java:335)
+> 	at richard.test.Test22_1.lambda$main$0(Test22_1.java:19)
+> 	at java.lang.Thread.run(Thread.java:748)
+
+**注意**：仅使用 `lockInterruptibly` 才能打断
