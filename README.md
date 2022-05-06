@@ -4068,3 +4068,83 @@ public static void main(String[] args) {
 ```
 
 这时不会出现死锁，但是会出现有的线程无法吃上饭（无法获取到锁）
+
+
+
+## ReentrantLock（可重入锁）
+
+相对于 synchronized 它具备如下特点
+
+- 可中断
+- 可以设置超时时间
+- 可以设置为公平锁（防止饥饿的现象，先到先得）
+- **<font color=red>支持多个条件变量（多个WaitSet）</font>**，而 synchronized 只有一个 WaitSet ，不同条件都进入同一个 WaitSet
+
+与 synchronized 一样，都支持可重入（对同一个对象反复加锁）
+
+
+
+基本语法：
+
+```java
+// 获取锁
+reentrantLock.lock();
+try {
+ // 临界区
+} finally {
+ // 释放锁
+ reentrantLock.unlock();
+}
+```
+
+
+
+### 可重入 
+
+可重入是指同一个线程如果首次获得了这把锁，那么因为它是这把锁的拥有者，因此有权力再次获取这把锁
+
+如果是不可重入锁，那么第二次获得锁时，自己也会被锁挡住
+
+```java
+public class Test22 {
+    private static ReentrantLock lock = new ReentrantLock();
+
+    public static void main(String[] args) {
+        lock.lock();
+        try {
+            log.debug("enter main");
+            m1();
+        }finally {
+            lock.unlock();
+        }
+    }
+
+    public static void m1() {
+        lock.lock();
+        try {
+            log.debug("enter m1");
+            m2();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public static void m2() {
+        lock.lock();
+        try {
+            log.debug("enter m2");
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+输出：
+
+```shell
+21:46:27.275 c.Test22 [main] - enter main
+21:46:27.276 c.Test22 [main] - enter m1
+21:46:27.276 c.Test22 [main] - enter m2
+```
+
