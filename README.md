@@ -4037,3 +4037,34 @@ public class TestLiveLock {
     }
 }
 ```
+
+
+
+### 饥饿
+
+使用顺序加锁的方式解决之前的死锁问题
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/06/995f7fd2ceccf7b3183bc0115cd59ca5_1651842490_FeIeecKfub.png)
+
+顺序加锁的解决方案
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/06/5618872af903d0f5c1ab392a3b87f1d9_1651842826_qW9efe3MIW.png)
+
+修改哲学家代码的吃饭顺序（richard.demo6.deadlock.v1.TestDeadLock）
+
+```java
+public static void main(String[] args) {
+    Chopstick c1 = new Chopstick("1");
+    Chopstick c2 = new Chopstick("2");
+    Chopstick c3 = new Chopstick("3");
+    Chopstick c4 = new Chopstick("4");
+    Chopstick c5 = new Chopstick("5");
+    new Philosopher("苏格拉底", c1, c2).start();
+    new Philosopher("柏拉图", c2, c3).start();
+    new Philosopher("亚里士多德", c3, c4).start();
+    new Philosopher("赫拉克利特", c4, c5).start();
+    new Philosopher("阿基米德", c1, c5).start();
+}
+```
+
+这时不会出现死锁，但是会出现有的线程无法吃上饭（无法获取到锁）

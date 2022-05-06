@@ -16,7 +16,7 @@ public class TestDeadLock {
         new Philosopher("柏拉图", c2, c3).start();
         new Philosopher("亚里士多德", c3, c4).start();
         new Philosopher("赫拉克利特", c4, c5).start();
-        new Philosopher("阿基米德", c5, c1).start();
+        new Philosopher("阿基米德", c1, c5).start();
     }
 }
 
@@ -47,7 +47,7 @@ class Philosopher extends Thread {
     Random random = new Random();
     private void eat() {
         log.debug("eating...");
-        Sleeper.sleep(1);   // 思考
+        Sleeper.sleep(0.5);   // 思考
     }
 }
 
