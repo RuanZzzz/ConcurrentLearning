@@ -4005,3 +4005,35 @@ richard.demo6.deadlock.v1.Philosopher.run(TestDeadLock.java:41)
 ```
 
 这种线程没有按预期结束，执行不下去的情况，归类为【活跃性】问题，除了死锁以外，还有活锁和饥饿者两种情况
+
+
+
+### 活锁
+
+活锁出现在两个线程互相改变对方的结束条件，最后谁也无法结束，如：
+
+```java
+public class TestLiveLock {
+    static volatile int count = 10;
+    static final Object lock = new Object();
+
+    public static void main(String[] args) {
+        new Thread(() -> {
+            // 期望减到 0 退出循环
+            while (count > 0) {
+                sleep(0.2);
+                count--;
+                log.debug("count: {}", count);
+            }
+        }, "t1").start();
+        new Thread(() -> {
+            // 期望超过 20 退出循环
+            while (count < 20) {
+                sleep(0.2);
+                count++;
+                log.debug("count: {}", count);
+            }
+        }, "t2").start();
+    }
+}
+```
