@@ -4079,6 +4079,7 @@ public static void main(String[] args) {
 - 可以设置超时时间
 - 可以设置为公平锁（防止饥饿的现象，先到先得）
 - **<font color=red>支持多个条件变量（多个WaitSet）</font>**，而 synchronized 只有一个 WaitSet ，不同条件都进入同一个 WaitSet
+- 需要手动释放锁
 
 与 synchronized 一样，都支持可重入（对同一个对象反复加锁）
 
@@ -4198,3 +4199,92 @@ public class Test22_1 {
 > 	at java.lang.Thread.run(Thread.java:748)
 
 **注意**：仅使用 `lockInterruptibly` 才能打断
+
+
+
+### 锁超时
+
+立刻失败
+
+```java
+public class Test22_2 {
+    private static ReentrantLock lock = new ReentrantLock();
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            log.debug("尝试获得锁");
+            if (!lock.tryLock()) {
+                log.debug("获取不到锁");
+                return;
+            }
+
+            // 如果获取到锁
+            try {
+                // 临界区代码
+                log.debug("获取到锁");
+            } finally {
+                lock.unlock();
+            }
+        }, "t1");
+
+        lock.lock();
+        log.debug("获取到锁");
+        t1.start();
+    }
+}
+```
+
+输出：
+
+> 22:11:57.990 c.Test22_2 [main] - 获取到锁
+> 22:11:57.992 c.Test22_2 [t1] - 尝试获得锁
+> 22:11:57.992 c.Test22_2 [t1] - 获取不到锁
+
+因为 `tryLock` 没有加时间，获取不到马上失败
+
+
+
+带参数的 `tryLock`
+
+```java
+public class Test22_2 {
+    private static ReentrantLock lock = new ReentrantLock();
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            log.debug("尝试获得锁");
+            try {
+                if (!lock.tryLock(2, TimeUnit.SECONDS)) {
+                    log.debug("获取不到锁");
+                    return;
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                return;
+            }
+
+            // 如果获取到锁
+            try {
+                // 临界区代码
+                log.debug("获取到锁");
+            } finally {
+                lock.unlock();
+            }
+        }, "t1");
+
+        lock.lock();
+        log.debug("获取到锁");
+        t1.start();
+        sleep(1);
+        lock.unlock();
+        log.debug("释放锁");
+    }
+}
+```
+
+输出：
+
+> 22:16:48.583 c.Test22_2 [main] - 获取到锁
+> 22:16:48.585 c.Test22_2 [t1] - 尝试获得锁
+> 22:16:49.594 c.Test22_2 [main] - 释放锁
+> 22:16:49.594 c.Test22_2 [t1] - 获取到锁
+
+在尝试范围内，主线程释放了锁，所以t1获得到了锁
