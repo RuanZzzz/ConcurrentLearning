@@ -100,7 +100,15 @@
     - [可打断](#可打断)
     - [锁超时](#锁超时)
       - [解决哲学家恰饭问题—锁超时（重点）](#解决哲学家恰饭问题锁超时重点)
-
+    - [条件变量](#条件变量)
+    - [同步模式之顺序控制](#同步模式之顺序控制)
+      - [固定运行顺序](#固定运行顺序)
+        - [wait notify 版](#wait-notify-版)
+        - [Park Unpark 版](#park-unpark-版)
+      - [交替输出（重点）](#交替输出重点)
+        - [wait notify 版](#wait-notify-版-1)
+        - [await signal 版](#await-signal-版)
+        - [Park Unpark 版](#park-unpark-版-1)
 
 
 # 进程与线程
@@ -4673,3 +4681,50 @@ class AwaitSignal extends ReentrantLock {
 ```
 
 注意：一开始三个线程都去休息了，然后先从a开始叫醒执行，然后依次往后执行
+
+
+
+##### Park Unpark 版
+
+```java
+public class Test31 {
+    static Thread t1;
+    static Thread t2;
+    static Thread t3;
+
+    public static void main(String[] args) {
+        ParkUnPark pu = new ParkUnPark(5);
+        t1 = new Thread(() -> {
+            pu.print("a", t2);
+        });
+        t2 = new Thread(() -> {
+            pu.print("b", t3);
+        });
+        t3 = new Thread(() -> {
+            pu.print("c", t1);
+        });
+
+        t1.start();
+        t2.start();
+        t3.start();
+
+        LockSupport.unpark(t1);
+    }
+}
+
+class ParkUnPark {
+    private int loopNumber;
+
+    public ParkUnPark(int loopNumber) {
+        this.loopNumber = loopNumber;
+    }
+
+    public void print(String str, Thread next) {
+        for (int i = 0; i < loopNumber; i++) {
+            LockSupport.park();
+            System.out.print(str);
+            LockSupport.unpark(next);
+        }
+    }
+}
+```
