@@ -4514,3 +4514,29 @@ public class Test25 {
 > 22:02:35.525 c.Test25 [t1] - 1
 
 总是会先打印2，才会去打印1
+
+
+
+##### Park Unpark 版
+
+```java
+public class Test26 {
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            LockSupport.park();
+            log.debug("1");
+        }, "t1");
+        t1.start();
+
+        new Thread(() -> {
+            log.debug("2");
+            LockSupport.unpark(t1);
+        }, "t2").start();
+    }
+}
+```
+
+输出：
+
+> 22:09:43.621 c.Test26 [t2] - 2
+> 22:09:43.622 c.Test26 [t1] - 1
