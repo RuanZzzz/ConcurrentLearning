@@ -4467,3 +4467,50 @@ public class Test24 {
 }
 ```
 
+
+
+### 同步模式之顺序控制
+
+#### 固定运行顺序
+
+##### wait notify 版
+
+```java
+public class Test25 {
+    static final Object lock = new Object();
+    // 表示 t2 是否运行过
+    static boolean t2runned = false;
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            synchronized (lock) {
+                while (!t2runned) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("1");
+            }
+        }, "t1");
+
+        Thread t2 = new Thread(() -> {
+            synchronized (lock) {
+                log.debug("2");
+                t2runned = true;
+                lock.notify();
+            }
+        }, "t2");
+
+        t1.start();
+        t2.start();
+    }
+}
+```
+
+输出：
+
+> 22:02:35.524 c.Test25 [t2] - 2
+> 22:02:35.525 c.Test25 [t1] - 1
+
+总是会先打印2，才会去打印1
