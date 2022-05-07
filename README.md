@@ -4369,3 +4369,101 @@ class Chopstick extends ReentrantLock {
 ```
 
 拿不到另一双筷子就学会放手，让别人先恰！
+
+
+
+### 条件变量
+
+synchronized 中也有条件变量，就是 WaitSet，当条件不满足时进入 WaitSet 等待
+
+ReentrantLock 的条件变量比 synchronized 强大之处在于，他是支持多个条件变量的
+
+- synchronized 不满足条件的线程都在同一个休息室（WaitSet）中等待消息
+- ReentrantLock 支持多个休息室（WaitSet），有专门的 WaitSet，唤醒时也是按 WaitSet 来唤醒
+
+
+
+使用流程：
+
+1、await 前需要获得锁
+
+2、await 执行后，会释放锁，进入 conditionObject 等待
+
+3、await 的线程被唤醒（或打断、或超时）取重新竞争 lock 锁
+
+4、竞争 lock 锁成功后，从 await 后继续执行
+
+```java
+public class Test24 {
+    static final Object room = new Object();
+    static boolean hasCigarette = false;
+    static boolean hasTakeout = false;
+    static ReentrantLock ROOM = new ReentrantLock();
+    // 等待烟的休息室
+    static Condition waitCigaretteSet = ROOM.newCondition();
+    // 等外卖的休息室
+    static Condition waitTakeOutSet = ROOM.newCondition();
+
+    public static void main(String[] args) {
+
+        new Thread(() -> {
+            ROOM.lock();
+            try {
+                log.debug("有烟没？[{}]", hasCigarette);
+                while (!hasCigarette) {
+                    log.debug("没烟，先歇会！");
+                    try {
+                        waitCigaretteSet.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("可以开始干活了");
+            } finally {
+                ROOM.unlock();
+            }
+        }, "小南").start();
+
+        new Thread(() -> {
+            ROOM.lock();
+            try {
+                log.debug("外卖送到没？[{}]", hasTakeout);
+                while (!hasTakeout) {
+                    log.debug("没外卖，先歇会！");
+                    try {
+                        waitTakeOutSet.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                log.debug("可以开始干活了");
+            } finally {
+                ROOM.unlock();
+            }
+        }, "小女").start();
+
+        sleep(1);
+        new Thread(() -> {
+            ROOM.lock();
+            try {
+                hasTakeout = true;
+                waitTakeOutSet.signal();
+            } finally {
+                ROOM.unlock();
+            }
+        }, "送外卖的").start();
+
+        sleep(1);
+        new Thread(() -> {
+            ROOM.lock();
+            try {
+                hasCigarette = true;
+                waitCigaretteSet.signal();
+            } finally {
+                ROOM.unlock();
+            }
+        }, "送烟的").start();
+    }
+}
+```
+
