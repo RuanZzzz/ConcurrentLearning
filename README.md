@@ -109,6 +109,10 @@
         - [wait notify 版](#wait-notify-版-1)
         - [await signal 版](#await-signal-版)
         - [Park Unpark 版](#park-unpark-版-1)
+- [共享模型之内存](#共享模型之内存)
+  - [Java 内存模型](#java-内存模型)
+  - [可见性](#可见性)
+    - [退不出的循环](#退不出的循环)
 
 
 # 进程与线程
@@ -4728,3 +4732,60 @@ class ParkUnPark {
     }
 }
 ```
+
+
+
+# 共享模型之内存
+
+## Java 内存模型
+
+JMM 即 Java Memory Model，它定义了主存（所有线程共享的变量）、工作内存（局部变量）抽象概念，底层对应着 CPU 寄存器、缓存、硬件内存、 CPU 指令优化等。
+
+ JMM 体现在以下几个方面 
+
+- 原子性 - 保证指令不会受到线程上下文切换的影响 
+- 可见性 - 保证指令不会受 cpu 缓存的影响 
+- 有序性 - 保证指令不会受 cpu 指令并行优化的影响
+
+
+
+## 可见性
+
+### 退不出的循环
+
+```java
+public class Test32 {
+    static boolean run = true;
+    public static void main(String[] args) {
+        Thread t = new Thread(() -> {
+            while (run) {
+                //
+            }
+        });
+        t.start();
+
+        sleep(1);
+        log.debug("停止 t");
+        run = false;
+    }
+}
+```
+
+结果：main 线程对 run 变量的修改对于 t 线程不可见，导致了 t 线程无法停止
+
+
+
+分析：
+
+1、初始状态：t 线程刚开始从主内存读取了 run 的值到工作内存
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/08/aa7a22781972397d771375f59b35a200_1652014513_UUHLjRj7KA.png)
+
+2、因为 t 线程要频繁从主内存中读取 run 的值，JIT 编译器会将 run 的值缓存至自己工作内存中的高速缓存中，减少对主存中 run 的访问，提高效率
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/08/5b9eefb5005f1340aed80dd65cb09fa7_1652014846_1CGkmZ6p6I.png)
+
+3、1秒后，main 线程修改了 run 的值，并同步至主存，而 t 是从自己工作内存中的高速缓存中读取这个变量的值，结果永远是旧值
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/08/362b28223ccca54c97a5e5888d64763e_1652015085_HghH5alN2U.png)
+
