@@ -4789,3 +4789,36 @@ public class Test32 {
 
 ![](https://rsx.881credit.cn//uploads/images/projectImg/202205/08/362b28223ccca54c97a5e5888d64763e_1652015085_HghH5alN2U.png)
 
+
+
+### 解决方法
+
+**volatile**（易变关键字）
+
+它**可以用来修饰成员变量和静态成员变量**，他可以避免线程从自己的工作缓存中查找变量的值，必须到主存中获取它的值，线程操作 volatile 变量都是直接操作主存
+
+```java
+public class Test32 {
+    // 加了volatile后，就不再去缓存中读取，而总是会去主内存中读取
+    volatile static boolean run = true;
+    public static void main(String[] args) {
+        Thread t = new Thread(() -> {
+            while (run) {
+                //
+            }
+        });
+        t.start();
+
+        sleep(1);
+        log.debug("停止 t");
+        run = false;
+    }
+}
+```
+
+
+
+
+
+
+
