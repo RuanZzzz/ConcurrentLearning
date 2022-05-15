@@ -4921,3 +4921,32 @@ class TwoPhaseTermination {
 结论：
 
 停止标记用 volatile 是为了保证该变量在多个线程之间的可见性，该例子就是使主线程修改的 `stop = true` 对 t1 线程可见
+
+
+
+#### 同步模式之Balking
+
+Balking（犹豫）模式用在一个线程发现另一个线程或本线程已经做了某一件相同的事，那么本线程就无需再做了，直接结束返回
+
+如：
+
+```java
+class TwoPhaseTermination {
+    // 判断是否执行过 start 方法
+    private boolean starting = false;
+
+    // 启动监控线程
+    public void start() {
+        synchronized (this) {
+            if (starting) {
+                return;
+            }
+
+            starting = true;
+        }
+        
+       // 实际的实现逻辑
+    }
+}
+```
+
