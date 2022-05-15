@@ -4818,7 +4818,35 @@ public class Test32 {
 
 
 
+### 可见性和原子性
 
+可见性：它保证的是在多个线程之间，一个线程对 volatile 变量的修改对另一个线程可见，不能保证原子性，**仅用在一个写线程，多个读线程的情况**： 从字节码理解是这样的：
 
+```shell
+getstatic run // 线程 t 获取 run true 
+getstatic run // 线程 t 获取 run true 
+getstatic run // 线程 t 获取 run true 
+getstatic run // 线程 t 获取 run true 
+putstatic run // 线程 main 修改 run 为 false， 仅此一次
+getstatic run // 线程 t 获取 run false 
+```
 
+如果是另一种情况：两个线程一个 i++ 一个 i-- ，只能保证看到最新值，不能解决指令交错
 
+```shell
+// 假设i的初始值为0 
+getstatic i // 线程2-获取静态变量i的值 线程内i=0 
+
+getstatic i // 线程1-获取静态变量i的值 线程内i=0 
+iconst_1 // 线程1-准备常量1 
+iadd // 线程1-自增 线程内i=1 
+putstatic i // 线程1-将修改后的值存入静态变量i 静态变量i=1 
+
+iconst_1 // 线程2-准备常量1 
+isub // 线程2-自减 线程内i=-1 
+putstatic i // 线程2-将修改后的值存入静态变量i 静态变量i=-1 
+```
+
+**<font color=red>注意</font>**：
+
+**synchronized 语句块既可以保证代码块的原子性，也同时保证代码块内变量的可见性**。但缺点是synchronized 是属于重量级操作，性能相对更低
