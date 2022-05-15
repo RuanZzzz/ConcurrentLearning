@@ -958,6 +958,7 @@ class TwoPhaseTermination {
                     log.debug("执行监控记录");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    // 因为 sleep 出现异常后，会清除打断标记
                     // 重新设置打断标记
                     curThread.interrupt();
                 }
@@ -4850,3 +4851,73 @@ putstatic i // 线程2-将修改后的值存入静态变量i 静态变量i=-1
 **<font color=red>注意</font>**：
 
 **synchronized 语句块既可以保证代码块的原子性，也同时保证代码块内变量的可见性**。但缺点是synchronized 是属于重量级操作，性能相对更低
+
+
+
+### *终止模式之两阶段终止模式
+
+Two Phase Termination
+
+在一个线程 T1 中如何“优雅”**终止线程 T2**？主要是让 T2 有一个料理后事的机会
+
+
+
+#### 错误思路
+
+- 使用线程对象的 stop() 方法停止线程
+  - stop 方法会真正杀死线程，如果这时线程锁住了共享资源，那么当它被杀死后就再也没有机会释放锁，其它线程将永远无法获取锁
+- 使用 System.exit(int) 方法停止线程
+  - 目的仅是停止一个线程，但这种做法会让整个程序都停止
+
+
+
+#### 两阶段终止模式
+
+之前的两阶段终止模式：<a href="#模式之两阶段终止">模式之两阶段终止</a>
+
+现在可以借助 `volatile` 来实现
+
+```java
+class TwoPhaseTermination {
+    // 线程监控
+    private Thread monitor;
+    private volatile boolean stop = false;
+
+    // 启动监控线程
+    public void start() {
+        monitor = new Thread(() -> {
+            while (true) {
+                Thread curThread = Thread.currentThread();
+                if (stop) {
+                    log.debug("料理后事");
+                    break;
+                }
+                try {
+                    Thread.sleep(1000);
+                    log.debug("执行监控记录");
+                } catch (InterruptedException e) {
+                }
+            }
+        });
+        monitor.start();
+    }
+
+    // 停止监控线程
+    public void stop() {
+        stop = true;
+        monitor.interrupt();
+    }
+}
+```
+
+输出：
+
+> 12:52:23.097 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> 12:52:24.105 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> 12:52:25.115 c.TwoPhaseTermination [Thread-0] - 执行监控记录
+> 12:52:25.599 c.Test1 [main] - 停止监控
+> 12:52:25.599 c.TwoPhaseTermination [Thread-0] - 料理后事
+
+结论：
+
+停止标记用 volatile 是为了保证该变量在多个线程之间的可见性，该例子就是使主线程修改的 `stop = true` 对 t1 线程可见
