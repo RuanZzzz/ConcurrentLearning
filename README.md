@@ -4792,7 +4792,7 @@ public class Test32 {
 
 
 
-### 解决方法
+### 解决方法（volatile）
 
 **volatile**（易变关键字）
 
@@ -4950,3 +4950,95 @@ class TwoPhaseTermination {
 }
 ```
 
+也可以用来实现线程安全的单例
+
+```java
+public final class Singleton {
+    private Singleton() {
+    }
+    private static Singleton INSTANCE = null;
+    public static synchronized Singleton getInstance() {
+        if (INSTANCE != null) {
+            return INSTANCE;
+        }
+
+        INSTANCE = new Singleton();
+        return INSTANCE;
+    }
+}
+```
+
+
+
+## 有序性
+
+JVM 会在不影响正确性的前提下，可以调整语句的执行顺序，如：
+
+```java
+static int i;
+static int j;
+// 在某个线程内执行如下赋值操作
+i = ...; 
+j = ...; 
+```
+
+因为先执行 i 还是 先执行 j ，对最终的结果不会产生影响。所以，上面代码真正执行时，既可以是
+
+```java
+i = ...; 
+j = ...;
+```
+
+也可以是
+
+```java
+j = ...;
+i = ...; 
+```
+
+这种特性称之为【指令重排】，但是多线程下【指令重排】会影响正确性
+
+
+
+### volatile原理
+
+volatile的底层实现原理是内存屏障，Memory Barrier（Memory Fence）
+
+- 对 volatile 变量的写指令后会加入写屏障
+- 对 volatile 变量的读指令前会加入读屏障
+
+
+
+#### 可见性保证
+
+1、写屏障（sfence）保证在该屏障之前的，对共享变量的改动，都同步到主存当中
+
+```java
+public void actor2(I_Result r) {
+    num = 2;
+    ready = true; // ready 是 volatile 赋值带写屏障
+    // 写屏障
+}
+```
+
+不仅是 ready，前面的 num 也会同步至主存中
+
+
+
+2、读屏障（lfence）保证在该屏障之后，对共享变量的读取，加载的是主存中最新数据
+
+```java
+public void actor1(I_Result r) {
+    // 读屏障
+    // ready 是 volatile 读取值带读屏障
+    if(ready) {
+        r.r1 = num + num;
+    } else {
+        r.r1 = 1;
+    }
+}
+```
+
+
+
+![](https://rsx.881credit.cn//uploads/images/projectImg/202205/16/0b107e7f49588f07fcbc939ad78f92e7_1652714183_K2kaSnFh91.png)
