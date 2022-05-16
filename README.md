@@ -5042,3 +5042,38 @@ public void actor1(I_Result r) {
 
 
 ![](https://rsx.881credit.cn//uploads/images/projectImg/202205/16/0b107e7f49588f07fcbc939ad78f92e7_1652714183_K2kaSnFh91.png)
+
+
+
+#### 有序性保证
+
+1、写屏障会确保指令重排序时，不会将写屏障之前的代码排在写屏障之后
+
+```java
+public void actor2(I_Result r) {
+    num = 2;
+    ready = true; // ready 是 volatile 赋值带写屏障
+}
+```
+
+**△不会进行指令重排**
+
+
+
+2、读屏障会确保指令重排序时，不会将读屏障之后的代码排在读屏障之前
+
+```java
+public void actor1(I_Result r) {
+    // ready 是 volatile 读取值带读屏障
+    if(ready) {
+        r.r1 = num + num;
+    } else {
+        r.r1 = 1;
+    }
+}
+```
+
+结论：
+
+- 写屏障仅仅是保证之后的读能够读到最新的结果，但不能保证读跑到它前面去
+- 而有序性的保证也只是保证了本线程内相关代码不被重排序
