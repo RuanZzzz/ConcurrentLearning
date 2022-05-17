@@ -5077,3 +5077,34 @@ public void actor1(I_Result r) {
 
 - 写屏障仅仅是保证之后的读能够读到最新的结果，但不能保证读跑到它前面去
 - 而有序性的保证也只是保证了本线程内相关代码不被重排序
+
+
+
+#### double-checked locking 问题
+
+以住吗的 double-checked locking 单例模式为例
+
+```java
+public final class Singleton {
+    private Singleton() { }
+    private static Singleton INSTANCE = null;
+    public static Singleton getInstance() {
+        if(INSTANCE == null) { // t2
+            // 首次访问会同步，而之后的使用没有 synchronized
+            synchronized(Singleton.class) {
+                if (INSTANCE == null) { // t1
+                    INSTANCE = new Singleton();
+                }
+            }
+        }
+        return INSTANCE;
+    }
+}
+```
+
+以上的实现特点是：
+
+- 懒惰实例化
+- 首次使用getInstance() 才使用 synchronized 加锁，后续使用时无需加锁
+- 有隐含的，但很关键的一点：第一个 if 使用了 INSTANCE 变量，是在同步块之外
+
